@@ -1,4 +1,4 @@
-package com.cortexmeter
+package com.snaptric
 
 import org.junit.Test
 

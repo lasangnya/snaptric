@@ -1,4 +1,4 @@
-package com.cortexmeter.core.designsystem.theme
+package com.snaptric.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
 

@@ -1,0 +1,81 @@
+package com.snaptric
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.navigation.AppNavHost
+import com.snaptric.navigation.TopLevelDestination
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            SnaptricTheme {
+                AppRoot()
+            }
+        }
+    }
+}
+
+@Composable
+fun AppRoot() {
+    val navController = rememberNavController()
+    val bottomBarDestinations = listOf(
+        TopLevelDestination.Home,
+        TopLevelDestination.Properties,
+        TopLevelDestination.Settings
+    )
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+    Scaffold(
+        bottomBar = { BottomAppBar {
+            bottomBarDestinations.forEach { destination ->
+                NavigationBarItem(
+                    selected = currentRoute == destination.route,
+                    onClick = {navController.navigate(destination.route)},
+                    icon = { Icon(destination.icon, contentDescription = destination.label)},
+                    label = { Text(destination.label) },
+                )
+            }
+
+        } },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {navController.navigate("capture")}
+            ) {
+                Icon(Icons.Default.CameraAlt, contentDescription = "capture")
+            }
+        }
+    ) { innerPadding ->
+            AppNavHost(
+                navController = navController,
+                modifier = Modifier.padding(innerPadding)
+            )
+
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AppRootPreview(){
+    SnaptricTheme() {
+        AppRoot()
+    }
+}
