@@ -2,10 +2,10 @@ package com.snaptric.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.snaptric.feature.capture.ui.CaptureScreen
 
 @Composable
 fun AppNavHost(
@@ -26,5 +26,6 @@ fun AppNavHost(
         composable(TopLevelDestination.Settings.route){
             /* TODO : Add settings screen */
         }
+        composable("capture") { CaptureScreen() }
     }
 }

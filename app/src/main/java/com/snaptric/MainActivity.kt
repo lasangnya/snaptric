@@ -49,7 +49,7 @@ fun AppRoot() {
             bottomBarDestinations.forEach { destination ->
                 NavigationBarItem(
                     selected = currentRoute == destination.route,
-                    onClick = {navController.navigate(destination.route)},
+                    onClick = {navController.navigate("capture")},
                     icon = { Icon(destination.icon, contentDescription = destination.label)},
                     label = { Text(destination.label) },
                 )
