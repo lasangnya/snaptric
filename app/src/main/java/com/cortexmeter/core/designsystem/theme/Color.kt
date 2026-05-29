@@ -1,4 +1,4 @@
-package com.cortexmeter.ui.theme
+package com.cortexmeter.core.designsystem.theme
 
 import androidx.compose.ui.graphics.Color
 
