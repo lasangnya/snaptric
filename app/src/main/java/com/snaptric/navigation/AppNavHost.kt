@@ -26,6 +26,9 @@ fun AppNavHost(
         composable(TopLevelDestination.Settings.route){
             /* TODO : Add settings screen */
         }
-        composable("capture") { CaptureScreen() }
+        composable("capture") { CaptureScreen(
+            onClose = { navController.popBackStack() },
+            onCapture = { /* TODO : Implement capture action */ }
+        ) }
     }
 }

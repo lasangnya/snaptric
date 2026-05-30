@@ -45,29 +45,39 @@ fun AppRoot() {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
     Scaffold(
-        bottomBar = { BottomAppBar {
-            bottomBarDestinations.forEach { destination ->
-                NavigationBarItem(
-                    selected = currentRoute == destination.route,
-                    onClick = {navController.navigate("capture")},
-                    icon = { Icon(destination.icon, contentDescription = destination.label)},
-                    label = { Text(destination.label) },
-                )
+        bottomBar = {
+            if (currentRoute != "capture"){
+                BottomAppBar {
+                    bottomBarDestinations.forEach { destination ->
+                        NavigationBarItem(
+                            selected = currentRoute == destination.route,
+                            onClick = { navController.navigate("capture") },
+                            icon = {
+                                Icon(
+                                    destination.icon,
+                                    contentDescription = destination.label
+                                )
+                            },
+                            label = { Text(destination.label) },
+                        )
+                    }
+                }
             }
-
-        } },
+        },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {navController.navigate("capture")}
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = "capture")
+            if (currentRoute != "capture") {
+                FloatingActionButton(
+                    onClick = { navController.navigate("capture") }
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "capture")
+                }
             }
         }
     ) { innerPadding ->
-            AppNavHost(
-                navController = navController,
-                modifier = Modifier.padding(innerPadding)
-            )
+        AppNavHost(
+            navController = navController,
+            modifier = Modifier.padding(innerPadding)
+        )
 
     }
 }

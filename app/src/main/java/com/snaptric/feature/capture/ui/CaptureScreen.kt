@@ -1,5 +1,7 @@
 package com.snaptric.feature.capture.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -9,24 +11,35 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.camera.core.Preview
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 
-
 @Composable
-fun CaptureScreen(){
+fun CaptureScreen(onClose : () -> Unit, onCapture : () -> Unit){
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val hasCameraPermission = remember {
         ContextCompat.checkSelfPermission(
             context,
-            android.Manifest.permission.CAMERA
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     if(!hasCameraPermission){
@@ -51,11 +64,44 @@ fun CaptureScreen(){
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black)) {
         AndroidView(
-            factory = { previewView },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            factory = { context -> PreviewView(context) }
         )
-    }
 
+        // Close button
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.7f), CircleShape)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "camera close",
+                tint = Color.White
+            )
+        }
+
+        // Capture button
+        IconButton(
+            onClick = onCapture,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 32.dp)
+                .size(72.dp)
+                .background(Color.White, CircleShape)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = "capture",
+                tint = Color.Black
+            )
+        }
+    }
 }
+
