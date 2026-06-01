@@ -14,14 +14,21 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.snaptric.ai.gemma.GemmaReadingAnalyzer
+import com.snaptric.core.data.InMemoryReadingRepository
 import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.feature.capture.viewmodel.CaptureViewModel
+import com.snaptric.feature.home.viewmodel.HomeViewModel
 import com.snaptric.navigation.AppNavHost
 import com.snaptric.navigation.TopLevelDestination
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,7 +58,7 @@ fun AppRoot() {
                     bottomBarDestinations.forEach { destination ->
                         NavigationBarItem(
                             selected = currentRoute == destination.route,
-                            onClick = { navController.navigate("capture") },
+                            onClick = { navController.navigate(destination.route) },
                             icon = {
                                 Icon(
                                     destination.icon,

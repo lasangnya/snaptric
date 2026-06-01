@@ -1,6 +1,5 @@
 package com.snaptric.feature.home.ui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,21 +8,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.snaptric.AppRoot
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.feature.capture.viewmodel.CaptureViewModel
+import com.snaptric.feature.home.viewmodel.HomeViewModel
+import com.snaptric.navigation.TopLevelDestination
 
 // UI for the Home screen
 @Composable
 fun HomeScreen(
-    latestReading : String? = null
+    viewModel: HomeViewModel = hiltViewModel()
 ){
+
+    val latest by viewModel.latestRead.collectAsState()
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -41,14 +46,14 @@ fun HomeScreen(
                 ) {
                     Text(text = "Latest Reading")
                     Text(
-                        text = "--",
+                        text = latest?.value ?: "--",
                         style = MaterialTheme.typography.displaySmall
                     )
                 }
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                text = if(latestReading == null) "No readings yet" else "Updated just now",
+                text = if (latest == null) "No readings yet" else "Updated just now",
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -57,7 +62,7 @@ fun HomeScreen(
 
 @Preview(showBackground = true)
 @Composable
-fun HomeScreen(){
+fun HomeScreenPreview(){
     SnaptricTheme() {
         HomeScreen()
     }

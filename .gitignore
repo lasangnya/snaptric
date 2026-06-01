@@ -62,3 +62,6 @@ local.properties
 # keep IntelliJ workspace files out
 workspace.xml
 .idea/workspace.xml
+
+#Gemma model
+/app/src/main/assets/gemma*

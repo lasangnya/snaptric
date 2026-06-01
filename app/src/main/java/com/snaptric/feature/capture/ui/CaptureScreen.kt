@@ -2,7 +2,10 @@ package com.snaptric.feature.capture.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.material3.Text
@@ -28,12 +31,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import java.io.File
 
 @Composable
-fun CaptureScreen(onClose : () -> Unit, onCapture : () -> Unit){
+fun CaptureScreen(onClose : () -> Unit, onCapture : (Uri) -> Unit){
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    val imageCapture = remember { ImageCapture.Builder().build() }
+
+
+    // on capture click
+    val outputFile = File(context.cacheDir, "captured_${System.currentTimeMillis()}.jpg")
+    val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
 
     val hasCameraPermission = remember {
         ContextCompat.checkSelfPermission(
@@ -60,7 +72,8 @@ fun CaptureScreen(onClose : () -> Unit, onCapture : () -> Unit){
         cameraProvider.bindToLifecycle(
             lifecycleOwner,
             cameraSelector,
-            preview
+            preview,
+            imageCapture
         )
     }
 
@@ -89,7 +102,22 @@ fun CaptureScreen(onClose : () -> Unit, onCapture : () -> Unit){
 
         // Capture button
         IconButton(
-            onClick = onCapture,
+            onClick = {
+                imageCapture.takePicture(
+                    outputOptions,
+                    ContextCompat.getMainExecutor(context),
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onError(exception: ImageCaptureException) {
+                            // Handle error
+                        }
+
+                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                            val uri = outputFileResults.savedUri ?: outputFile.toUri()
+                            onCapture(uri)
+                        }
+                    }
+                )
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 32.dp)
