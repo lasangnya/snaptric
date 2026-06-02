@@ -18,9 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.designsystem.theme.SnaptricTheme
-import com.snaptric.feature.capture.viewmodel.CaptureViewModel
 import com.snaptric.feature.home.viewmodel.HomeViewModel
-import com.snaptric.navigation.TopLevelDestination
 
 // UI for the Home screen
 @Composable

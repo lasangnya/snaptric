@@ -8,11 +8,18 @@ fun copyAssetToFiles(
     assetName : String
 ) : File {
     val outFile = File(context.filesDir, assetName)
-    if(!outFile.exists()){
-        context.assets.open(assetName).use { inputStream ->
-            outFile.outputStream().use { outputStream ->
-                inputStream.copyTo(outputStream)
-            }
+
+    // Check if file exists AND has the expected size (approx 1.3GB)
+    if (outFile.exists() && outFile.length() > 1_200_000_000) {
+        return outFile
+    }
+
+    // If it's broken or missing, delete and recopy
+    outFile.delete()
+
+    context.assets.open(assetName).use { inputStream ->
+        outFile.outputStream().use { outputStream ->
+            inputStream.copyTo(outputStream)
         }
     }
     return outFile

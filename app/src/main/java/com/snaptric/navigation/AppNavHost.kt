@@ -1,6 +1,8 @@
 package com.snaptric.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -31,10 +33,20 @@ fun AppNavHost(
         composable(TopLevelDestination.Settings.route){
             /* TODO : Add settings screen */
         }
-        composable("capture") { CaptureScreen(
-            onClose = { navController.popBackStack() },
-            onCapture = { uri ->
-            }
-        ) }
+        composable("capture") {
+            val captureViewModel : CaptureViewModel = hiltViewModel()
+            val isAnalyzing by captureViewModel.isAnalyzing.collectAsState()
+
+            CaptureScreen(
+                isAnalyzing = isAnalyzing,
+                onClose = { navController.popBackStack() },
+                onCapture = { uri ->
+                    // Trigger analysis here
+                    // Navigation will happen from inside the ViewModel when finished.
+                    captureViewModel.analyzeAndSave(uri){
+                        navController.popBackStack()
+                    }
+                }
+            ) }
     }
 }
