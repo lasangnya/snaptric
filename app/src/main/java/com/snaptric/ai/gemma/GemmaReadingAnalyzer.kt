@@ -52,24 +52,24 @@ class GemmaReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer 
         return withContext(Dispatchers.Default) {
             // 2. Use Gemma to find the actual reading in the OCR mess
             val prompt = """
-    Identify the meter reading from the OCR text below.
+                Identify the meter reading from the OCR text below.
     
-    ### EXAMPLES ###
-    OCR: "Pmax 0,1 bar\n001 22 34 5\nEN 1359" -> Result: 00122345
-    OCR: "12142MIO\n5. Feb 2026\n007 35 05 4\nQmin 0,04" -> Result: 00735054
+                ### EXAMPLES ###
+                OCR: "Pmax 0,1 bar\n001 22 34 5\nEN 1359" -> Result: 00122345
+                OCR: "12142MIO\n5. Feb 2026\n007 35 05 4\nQmin 0,04" -> Result: 00735054
 
-    ### ACTUAL OCR DATA TO PROCESS ###
-    $cleanedOcr
+                ### ACTUAL OCR DATA TO PROCESS ###
+                $cleanedOcr
 
-    ### INSTRUCTIONS ###
-    - Output ONLY the numeric reading.
-    - Do NOT include any text from the examples above.
-    - Ignore serial numbers and phone numbers.
-    - Look for the 8-digit consumption counter (like 00735054).
-    - Result:
-""".trimIndent()
-            val response = llm.generateResponse(prompt)
-            val value = response?.filter { it.isDigit() }
+                ### INSTRUCTIONS ###
+                - Output ONLY the numeric reading.
+                - Do NOT include any text from the examples above.
+                - Ignore serial numbers and phone numbers.
+                - Look for the 8-digit consumption counter (like 00735054).
+                - Result:
+                """.trimIndent()
+                val response = llm.generateResponse(prompt)
+                val value = response?.filter { it.isDigit() }
 
             Reading(value = value, timestamp = System.currentTimeMillis(), source = "GEMMA")
         }
