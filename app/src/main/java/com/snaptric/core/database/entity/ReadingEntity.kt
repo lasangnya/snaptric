@@ -12,7 +12,7 @@ import androidx.room3.PrimaryKey
             entity = UtilityEntity::class,
             parentColumns = ["id"],
             childColumns = ["utilityId"],
-            onDelete = ForeignKey.Companion.CASCADE
+            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [Index(value = ["utilityId"])]

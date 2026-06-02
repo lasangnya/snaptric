@@ -1,12 +1,5 @@
 package com.snaptric.feature.properties.ui
 
-import android.R.attr.name
-import android.R.attr.padding
-import android.R.attr.title
-import android.graphics.drawable.Icon
-import android.widget.Button
-import android.widget.Space
-import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
