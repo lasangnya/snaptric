@@ -15,4 +15,8 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     val latestRead = readingRepository.latestReading()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // observe the analyzing state
+    val isAnalyzing = readingRepository.isAnalyzing()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 }

@@ -9,10 +9,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 class InMemoryReadingRepository : ReadingRepository {
 
     private val latestReading = MutableStateFlow<Reading?>(null)
+    private val _isAnalyzing = MutableStateFlow(false)
 
     override suspend fun saveReading(reading: Reading) {
         latestReading.value= reading
     }
 
     override fun latestReading(): Flow<Reading?> = latestReading
+
+    override fun isAnalyzing(): Flow<Boolean> = _isAnalyzing
+    override fun setAnalyzing(analyzing: Boolean) {
+        _isAnalyzing.value = analyzing
+    }
 }

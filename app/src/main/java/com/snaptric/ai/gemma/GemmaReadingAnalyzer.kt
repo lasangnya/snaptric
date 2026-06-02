@@ -1,6 +1,7 @@
 package com.snaptric.ai.gemma
 
 import android.content.Context
+import android.util.Log
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -15,7 +16,14 @@ import kotlin.coroutines.resume
 
 class GemmaReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer {
 
-    private var llm: LlmInference? = null
+    private val llm by lazy {
+        val modelFile = copyAssetToFiles(context, "gemma-2b-it-gpu-int4.bin")
+        val options = LlmInference.LlmInferenceOptions.builder()
+            .setModelPath(modelFile.absolutePath)
+            .setMaxTokens(1024)
+            .build()
+        LlmInference.createFromOptions(context, options)
+    }
 
     override suspend fun analyze(imageUri: android.net.Uri): Reading {
 
@@ -28,25 +36,39 @@ class GemmaReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer 
                 .addOnSuccessListener { continuation.resume(it.text) }
                 .addOnFailureListener { continuation.resume("") }
         }
+        val cleanedOcr = ocrText.lines()
+            .map { it.trim() }
+            .filter { line ->
+                val digitCount = line.count { it.isDigit() }
+                val isTechnical = line.contains("m/h") || line.contains("bar") || line.contains("°C")
+                val isDate = line.contains("2026") || line.contains("at")
+
+                // Keep lines with 4+ digits that aren't dates or technical specs
+                digitCount > 3 && !isTechnical && !isDate
+            }
+            .joinToString("\n")
+        Log.d("ocrtext", cleanedOcr)
 
         return withContext(Dispatchers.Default) {
-            if (llm == null) {
-                withContext(Dispatchers.IO) {
-                    val modelFile = copyAssetToFiles(context, "gemma-2b-it-gpu-int4.bin")
-                    val options = LlmInference.LlmInferenceOptions.builder()
-                        .setModelPath(modelFile.absolutePath)
-                        .build()
-                    llm = LlmInference.createFromOptions(context, options)
-                }
-            }
             // 2. Use Gemma to find the actual reading in the OCR mess
             val prompt = """
-                The following text was extracted from a utility meter via OCR: "$ocrText".
-                Please identify the current meter reading. 
-                Output ONLY the numeric digits. 
-                If you cannot find a reading, output "0000".
-                """.trimIndent()
-            val response = llm?.generateResponse(prompt)
+    Identify the meter reading from the OCR text below.
+    
+    ### EXAMPLES ###
+    OCR: "Pmax 0,1 bar\n001 22 34 5\nEN 1359" -> Result: 00122345
+    OCR: "12142MIO\n5. Feb 2026\n007 35 05 4\nQmin 0,04" -> Result: 00735054
+
+    ### ACTUAL OCR DATA TO PROCESS ###
+    $cleanedOcr
+
+    ### INSTRUCTIONS ###
+    - Output ONLY the numeric reading.
+    - Do NOT include any text from the examples above.
+    - Ignore serial numbers and phone numbers.
+    - Look for the 8-digit consumption counter (like 00735054).
+    - Result:
+""".trimIndent()
+            val response = llm.generateResponse(prompt)
             val value = response?.filter { it.isDigit() }
 
             Reading(value = value, timestamp = System.currentTimeMillis(), source = "GEMMA")

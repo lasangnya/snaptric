@@ -6,4 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface ReadingRepository{
     suspend fun saveReading(reading: Reading)
     fun latestReading() : Flow<Reading?>
+
+    fun isAnalyzing() : Flow<Boolean>
+    fun setAnalyzing(analyzing : Boolean)
 }

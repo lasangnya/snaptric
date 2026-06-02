@@ -25,8 +25,9 @@ import com.snaptric.feature.home.viewmodel.HomeViewModel
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ){
-
+    val isAnalyzing by viewModel.isAnalyzing.collectAsState()
     val latest by viewModel.latestRead.collectAsState()
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -50,10 +51,18 @@ fun HomeScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text(
-                text = if (latest == null) "No readings yet" else "Updated just now",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if (isAnalyzing) {
+                Text(
+                    text = "AI is analyzing your photo...",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            else {
+                Text(
+                    text = if (latest == null) "No readings yet" else "Updated just now",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }
