@@ -6,12 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+@HiltViewModel
 class PropertyDetailViewModel @Inject constructor(
     private val meterDao: MeterDao,
     savedStateHandle: SavedStateHandle // Automaticall catches propertyId from Navigation
