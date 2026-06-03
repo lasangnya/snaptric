@@ -50,19 +50,8 @@ fun AppNavHost(
             /* TODO : Add settings screen */
         }
         composable("capture") {
-            val captureViewModel : CaptureViewModel = hiltViewModel()
-            val isAnalyzing by captureViewModel.isAnalyzing.collectAsState()
-
             CaptureScreen(
-                isAnalyzing = isAnalyzing,
-                onClose = { navController.popBackStack() },
-                onCapture = { uri ->
-                    // Trigger analysis here
-                    // Navigation will happen from inside the ViewModel when finished.
-                    captureViewModel.analyzeAndSave(uri){
-                        navController.popBackStack()
-                    }
-                }
+                onClose = { navController.popBackStack() }
             ) }
     }
 }
