@@ -19,11 +19,11 @@ interface MeterDao {
     suspend fun insertUtility(utility : UtilityEntity) : Long
 
     @Query("SELECT * FROM utility WHERE propertyId = :propertyId")
-    suspend fun getUtilitiesForProperty(propertyId : Long) : Flow<List<UtilityEntity>>
+    fun getUtilitiesForProperty(propertyId : Long) : Flow<List<UtilityEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReading(reading: ReadingEntity)
 
     @Query("SELECT * FROM readings WHERE utilityId = :utilityId ORDER BY timestamp DESC")
-    suspend fun getReadingsForUtility(utilityId : Long) : Flow<List<ReadingEntity>>
+    fun getReadingsForUtility(utilityId : Long) : Flow<List<ReadingEntity>>
 }
