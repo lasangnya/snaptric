@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -39,13 +41,30 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppRoot() {
     val navController = rememberNavController()
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    AppRootContent(
+        currentRoute = currentRoute,
+        onNavigate = { route -> navController.navigate(route) }
+    ) { innerPadding ->
+        AppNavHost(
+            navController = navController,
+            modifier = Modifier.padding(innerPadding)
+        )
+    }
+
+}
+
+@Composable
+fun AppRootContent(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+    content: @Composable (PaddingValues) -> Unit
+){
     val bottomBarDestinations = listOf(
         TopLevelDestination.Home,
         TopLevelDestination.Properties,
         TopLevelDestination.Settings
     )
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-
     Scaffold(
         bottomBar = {
             if (currentRoute != "capture"){
@@ -53,7 +72,7 @@ fun AppRoot() {
                     bottomBarDestinations.forEach { destination ->
                         NavigationBarItem(
                             selected = currentRoute == destination.route,
-                            onClick = { navController.navigate(destination.route) },
+                            onClick = { onNavigate(destination.route) },
                             icon = {
                                 Icon(
                                     destination.icon,
@@ -69,25 +88,29 @@ fun AppRoot() {
         floatingActionButton = {
             if (currentRoute != "capture") {
                 FloatingActionButton(
-                    onClick = { navController.navigate("capture") }
+                    onClick = { onNavigate("capture") }
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = "capture")
                 }
             }
         }
     ) { innerPadding ->
-        AppNavHost(
-            navController = navController,
-            modifier = Modifier.padding(innerPadding)
-        )
-
+        content(innerPadding)
     }
 }
 
+
 @Preview(showBackground = true)
 @Composable
-fun AppRootPreview(){
-    SnaptricTheme() {
-        AppRoot()
+fun AppRootPreview() {
+    SnaptricTheme {
+        AppRootContent(
+            currentRoute = "home",
+            onNavigate = {}
+        ) { innerPadding ->
+            Box(Modifier.padding(innerPadding)) {
+                Text("Content Area Preview")
+            }
+        }
     }
 }

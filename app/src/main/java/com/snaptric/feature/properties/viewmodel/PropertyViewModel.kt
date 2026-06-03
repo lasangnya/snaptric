@@ -1,5 +1,7 @@
 package com.snaptric.feature.properties.viewmodel
 
+import android.graphics.drawable.Icon
+import androidx.camera.core.impl.Identifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
@@ -21,11 +23,12 @@ class PropertyViewModel @Inject constructor(
              initialValue = emptyList()
          )
 
-    fun addProperty(name : String, address : String?){
+    fun addProperty(name : String, address : String?, iconIdentifier: String?){
         viewModelScope.launch {
             val newProperty = PropertyEntity(
                 name = name,
-                address = address
+                address = address,
+                iconIdentifier = iconIdentifier.toString()
             )
             meterDao.insertProperty(newProperty)
         }

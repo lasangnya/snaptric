@@ -12,6 +12,8 @@ import com.snaptric.feature.capture.ui.CaptureScreen
 import com.snaptric.feature.capture.viewmodel.CaptureViewModel
 import com.snaptric.feature.home.ui.HomeScreen
 import com.snaptric.feature.home.viewmodel.HomeViewModel
+import com.snaptric.feature.properties.ui.PropertiesScreen
+import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
 @Composable
 fun AppNavHost(
@@ -28,7 +30,8 @@ fun AppNavHost(
             HomeScreen(viewModel)
         }
         composable(TopLevelDestination.Properties.route){
-            /* TODO : Add properties screen */
+            val viewModel : PropertyViewModel = hiltViewModel()
+            PropertiesScreen(viewModel)
         }
         composable(TopLevelDestination.Settings.route){
             /* TODO : Add settings screen */
