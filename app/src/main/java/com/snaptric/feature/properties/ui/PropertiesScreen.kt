@@ -112,7 +112,7 @@ fun PropertyCard(property : PropertyEntity){
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    imageVector = PropertyIconProvider.getIcon(property.iconIdentifier ?: "home"),
+                    imageVector = PropertyIconProvider.getIcon(property.iconIdentifier),
                     contentDescription = "Property icon",
                     modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.primary

@@ -1,7 +1,5 @@
 package com.snaptric.feature.properties.viewmodel
 
-import android.graphics.drawable.Icon
-import androidx.camera.core.impl.Identifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
