@@ -1,8 +1,8 @@
 package com.snaptric.core.database
 
-import androidx.room3.Database
-import androidx.room3.RoomDatabase
-import androidx.room3.TypeConverters
+import androidx.room.Database
+import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import com.snaptric.core.database.converter.DatabaseConverters
 import com.snaptric.core.database.dao.MeterDao
 

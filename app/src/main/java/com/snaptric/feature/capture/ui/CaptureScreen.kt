@@ -2,24 +2,29 @@ package com.snaptric.feature.capture.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
@@ -43,25 +48,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.feature.capture.viewmodel.CaptureViewModel
-import java.io.File
 
 @Composable
 fun CaptureScreen(
@@ -77,6 +82,8 @@ fun CaptureScreen(
     val capturedValue by viewModel.capturedValue.collectAsState()
     val properties by viewModel.properties.collectAsState()
     val utilities by viewModel.utilities.collectAsState()
+
+    val capturedBitmap by viewModel.capturedBitmap.collectAsState()
 
 
     val hasCameraPermission = remember {
@@ -136,12 +143,30 @@ fun CaptureScreen(
             // Capture Button
             IconButton(
                 onClick = {
-                    val file = File(context.cacheDir, "temp.jpg")
-                    val options = ImageCapture.OutputFileOptions.Builder(file).build()
-                    imageCapture.takePicture(options, ContextCompat.getMainExecutor(context),
-                        object : ImageCapture.OnImageSavedCallback {
-                            override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                viewModel.analyzeAndShowDialog(output.savedUri ?: file.toUri())
+                    imageCapture.takePicture(
+                        ContextCompat.getMainExecutor(context),
+                        object : ImageCapture.OnImageCapturedCallback() {
+                            override fun onCaptureSuccess(image: ImageProxy) {
+                                // 1. Get rotation from the camera sensor
+                                val rotationDegrees = image.imageInfo.rotationDegrees
+
+                                // 2. Convert to Bitmap
+                                val rawBitmap = image.toBitmap()
+
+                                // 3. Rotate the bitmap so it is "Upright" (matches what you see)
+                                val rotatedBitmap = if (rotationDegrees != 0) {
+                                    val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                                    Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
+                                } else {
+                                    rawBitmap
+                                }
+
+                                // 4. NOW crop the rotated bitmap using UI percentages
+                                val croppedBitmap = cropToCenterStrip(rotatedBitmap)
+
+                                // 5. Send to AI and clean up
+                                viewModel.analyzeAndShowDialog(croppedBitmap)
+                                image.close()
                             }
                             override fun onError(e: ImageCaptureException) {}
                         }
@@ -160,10 +185,11 @@ fun CaptureScreen(
                 utilities = utilities,
                 onPropertySelected = { viewModel.onPropertySelected(it) },
                 onDismiss = { viewModel.clearCapturedValue() },
-                onSave = { reading, utilId ->
+                onSave = {reading, utilId ->
                     viewModel.saveReading(reading, utilId)
                     onClose() // Go home after save
-                }
+                },
+                capturedBitmap = capturedBitmap
             )
         }
     }
@@ -176,9 +202,9 @@ fun CaptureOverlay(){
         val cornerRadius = 12.dp.toPx()
 
         // cutout
-        val rectWidth = size.width *0.8f
-        val rectHeight = size.width *0.2f
-        val left = (size.width -rectWidth)/2
+        val rectWidth = size.width * 0.8f
+        val rectHeight = size.height * 0.10f
+        val left = (size.width - rectWidth) / 2
         val top = (size.height - rectHeight) / 2
 
         val rectPath = Path().apply {
@@ -202,6 +228,20 @@ fun CaptureOverlay(){
     }
 }
 
+private fun cropToCenterStrip(bitmap: Bitmap) : Bitmap{
+    val width = bitmap.width
+    val height = bitmap.height
+
+    // Match UI: 80% width, 10% height
+    val rectWidth = (width * 0.8f).toInt()
+    val rectHeight = (height * 0.10f).toInt()
+
+    val left = (width - rectWidth) / 2
+    val top = (height - rectHeight) / 2
+
+    return Bitmap.createBitmap(bitmap, left, top, rectWidth, rectHeight)
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmReadingDialog(
@@ -210,7 +250,8 @@ fun ConfirmReadingDialog(
     utilities: List<UtilityEntity>,
     onPropertySelected : (Long) -> Unit,
     onDismiss: () -> Unit,
-    onSave:(Double, Long) -> Unit
+    onSave:(Double, Long) -> Unit,
+    capturedBitmap: Bitmap?
 ){
     var editedValue by remember { mutableStateOf(detectedValue) }
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
@@ -236,6 +277,17 @@ fun ConfirmReadingDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                capturedBitmap?.let { bitmap ->
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Captured Image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.DarkGray)
+                    )
+                }
                 OutlinedTextField(
                     value = editedValue,
                     onValueChange = { editedValue = it },

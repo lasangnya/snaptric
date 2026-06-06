@@ -1,6 +1,6 @@
 package com.snaptric.core.database.converter
 
-import androidx.room3.TypeConverter
+import androidx.room.TypeConverter
 import com.snaptric.core.database.entity.UtilityType
 
 class DatabaseConverters {

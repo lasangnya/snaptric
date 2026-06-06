@@ -1,13 +1,15 @@
 package com.snaptric.core.database.dao
 
-import androidx.room3.Insert
-import androidx.room3.OnConflictStrategy
-import androidx.room3.Query
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import kotlinx.coroutines.flow.Flow
 
+@Dao
 interface MeterDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProperty(property : PropertyEntity) : Long

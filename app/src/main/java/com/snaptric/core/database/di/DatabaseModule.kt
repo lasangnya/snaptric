@@ -1,7 +1,7 @@
 package com.snaptric.core.database.di
 
 import android.content.Context
-import androidx.room3.Room
+import androidx.room.Room
 import com.snaptric.core.database.SnaptricDatabase
 import dagger.Module
 import dagger.Provides

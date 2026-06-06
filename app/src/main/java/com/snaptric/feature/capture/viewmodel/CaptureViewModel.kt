@@ -1,5 +1,6 @@
 package com.snaptric.feature.capture.viewmodel
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -22,6 +23,9 @@ class CaptureViewModel @Inject constructor(
     private val meterReadingAnalyzer: MeterReadingAnalyzer,
     private val meterDao: MeterDao
 ) : ViewModel() {
+
+    private val _capturedBitmap = MutableStateFlow<Bitmap?>(null)
+    val capturedBitmap = _capturedBitmap.asStateFlow()
 
     private val _isAnalyzing = MutableStateFlow(false)
     val isAnalyzing = _isAnalyzing.asStateFlow()
@@ -47,11 +51,12 @@ class CaptureViewModel @Inject constructor(
     fun onPropertySelected(id: Long) {
         selectedPropertyId.value = id
     }
-    fun analyzeAndShowDialog(uri: Uri) {
+    fun analyzeAndShowDialog(bitmap: Bitmap) {
+        _capturedBitmap.value =bitmap
         viewModelScope.launch {
             _isAnalyzing.value = true
             try {
-                val reading = meterReadingAnalyzer.analyze(uri)
+                val reading = meterReadingAnalyzer.analyze(bitmap)
                 _capturedValue.value = reading.value
             } finally {
                 _isAnalyzing.value = false
