@@ -1,7 +1,7 @@
 package com.snaptric
 
 import android.content.Context
-import com.snaptric.ai.gemma.GemmaReadingAnalyzer
+import com.snaptric.ai.mlkit.MlKitReadingAnalyzer
 import com.snaptric.core.data.InMemoryReadingRepository
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.ReadingRepository
@@ -28,7 +28,7 @@ object AppModule{
     @Provides
     @Singleton
     fun provideMeterReadingAnalyzer(@ApplicationContext context: Context) : MeterReadingAnalyzer{
-        return GemmaReadingAnalyzer(context)
+        return MlKitReadingAnalyzer(context)
     }
 
     @Provides

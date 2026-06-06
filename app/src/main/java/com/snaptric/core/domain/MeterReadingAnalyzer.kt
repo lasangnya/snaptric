@@ -1,8 +1,8 @@
 package com.snaptric.core.domain
 
-import android.net.Uri
+import android.graphics.Bitmap
 
 // Interface for the meter reading analyzer.
 interface MeterReadingAnalyzer{
-    suspend fun analyze(imageUri : Uri) : Reading
+    suspend fun analyze(bitmap: Bitmap) : Reading
 }
