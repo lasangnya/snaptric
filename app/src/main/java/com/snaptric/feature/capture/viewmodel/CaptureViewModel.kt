@@ -1,7 +1,6 @@
 package com.snaptric.feature.capture.viewmodel
 
 import android.graphics.Bitmap
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao

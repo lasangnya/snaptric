@@ -3,7 +3,6 @@ package com.snaptric.ai.mlkit
 import android.content.Context
 import android.graphics.Bitmap
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.common.InputImage.fromFilePath
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.snaptric.core.domain.MeterReadingAnalyzer
