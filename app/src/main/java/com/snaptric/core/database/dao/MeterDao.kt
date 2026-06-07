@@ -31,4 +31,7 @@ interface MeterDao {
 
     @Query("SELECT * FROM readings ORDER BY timestamp DESC")
     fun getAllReadings() : Flow<List<ReadingEntity>>
+
+    @Query("DELETE FROM properties WHERE id = :propertyId")
+    suspend fun deleteProperty(propertyId: Long)
 }

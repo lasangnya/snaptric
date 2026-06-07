@@ -5,7 +5,6 @@ import app.cash.turbine.test
 import com.snaptric.MainDispatcherRule
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.PropertyEntity
-import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.domain.MeterReadingAnalyzer
@@ -14,9 +13,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
