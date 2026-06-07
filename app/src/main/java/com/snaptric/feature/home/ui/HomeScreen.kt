@@ -147,6 +147,7 @@ fun HomeContent(
                         )
                     } else {
                         recentReadings.forEachIndexed { index, reading ->
+                            val gap = recentReadings.getOrNull(index + 1)?.let { reading.value - it.value }
                             SnaptricCard(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -168,11 +169,13 @@ fun HomeContent(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                    Text(
-                                        text = reading.source,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
+                                    if (gap != null) {
+                                        Text(
+                                            text = formatGap(gap),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                             if (index < recentReadings.size - 1) {
@@ -215,6 +218,13 @@ private fun getGreeting(): String {
 private fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
     return sdf.format(Date(timestamp))
+}
+
+private fun formatGap(gap: Double): String {
+    val formatted = String.format(Locale.getDefault(), "%.2f", gap)
+        .trimEnd('0')
+        .trimEnd('.')
+    return "+$formatted"
 }
 
 @Preview(showBackground = true)

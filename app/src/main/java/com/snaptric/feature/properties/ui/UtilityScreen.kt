@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.History
@@ -41,7 +42,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.database.entity.ReadingEntity
-import com.snaptric.core.designsystem.components.SnaptricBadge
 import com.snaptric.core.designsystem.components.SnaptricCard
 import com.snaptric.core.designsystem.components.SnaptricEmptyState
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
@@ -109,9 +109,11 @@ fun UtilityDetailContent(
                             .padding(bottom = SnaptricSpacing.sm)
                     )
                 }
-                items(readings, key = { it.id }) { reading ->
+                itemsIndexed(readings, key = { _, it -> it.id }) { index, reading ->
+                    val gap = readings.getOrNull(index + 1)?.let { reading.value - it.value }
                     ReadingHistoryItem(
                         reading = reading,
+                        gap = gap,
                         modifier = Modifier.animateItem()
                     )
                 }
@@ -275,17 +277,20 @@ fun ReadingBarChart(
 @Composable
 fun ReadingHistoryItem(
     reading: ReadingEntity,
+    gap: Double?,
     modifier: Modifier = Modifier
 ) {
     val date = remember(reading.timestamp) {
         SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(reading.timestamp))
     }
 
-    val (badgeContainerColor, badgeContentColor) = when (reading.source) {
-        "MLKit" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        "Manual" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        "Gemma" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    val gapText = remember(gap) {
+        gap?.let {
+            val formatted = String.format(Locale.getDefault(), "%.2f", it)
+                .trimEnd('0')
+                .trimEnd('.')
+            "+$formatted"
+        }
     }
 
     SnaptricCard(
@@ -313,11 +318,13 @@ fun ReadingHistoryItem(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            SnaptricBadge(
-                text = reading.source,
-                containerColor = badgeContainerColor,
-                contentColor = badgeContentColor
-            )
+            if (gapText != null) {
+                Text(
+                    text = gapText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
