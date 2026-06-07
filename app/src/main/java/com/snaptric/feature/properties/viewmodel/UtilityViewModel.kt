@@ -13,7 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class UtilityViewModel @Inject constructor(
-    private val meterDao: MeterDao,
+    meterDao: MeterDao,
     savedStateHandle: SavedStateHandle
 ) : ViewModel(){
     private val utilityId : Long = checkNotNull(savedStateHandle["utilityId"])

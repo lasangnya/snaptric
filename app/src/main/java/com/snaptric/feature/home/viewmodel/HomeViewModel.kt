@@ -3,8 +3,6 @@ package com.snaptric.feature.home.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
-import com.snaptric.core.database.entity.PropertyEntity
-import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.domain.ReadingRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,8 +12,8 @@ import javax.inject.Inject
 // Viewmodel for the Home screen
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val readingRepository: ReadingRepository,
-    private val meterDao: MeterDao,
+    readingRepository: ReadingRepository,
+    meterDao: MeterDao,
 ) : ViewModel() {
     val latestRead = readingRepository.latestReading()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
