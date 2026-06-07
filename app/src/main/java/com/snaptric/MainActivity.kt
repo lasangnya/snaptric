@@ -4,6 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -86,7 +92,19 @@ fun AppRootContent(
             }
         },
         floatingActionButton = {
-            if (currentRoute != "capture") {
+            AnimatedVisibility(
+                visible = currentRoute != "capture",
+                enter = scaleIn(
+                    animationSpec = tween(200)
+                ) + fadeIn(
+                    animationSpec = tween(200)
+                ),
+                exit = scaleOut(
+                    animationSpec = tween(200)
+                ) + fadeOut(
+                    animationSpec = tween(200)
+                )
+            ) {
                 FloatingActionButton(
                     onClick = { onNavigate("capture") }
                 ) {

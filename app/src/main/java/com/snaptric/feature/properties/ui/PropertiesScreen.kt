@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Business
@@ -27,8 +28,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Villa
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +51,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.database.entity.PropertyEntity
+import com.snaptric.core.designsystem.components.SnaptricCard
+import com.snaptric.core.designsystem.components.SnaptricEmptyState
+import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
@@ -59,7 +61,7 @@ import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 fun PropertiesScreen(
     viewModel: PropertyViewModel = hiltViewModel(),
     onPropertyClick: (Long) -> Unit
-){
+) {
     val properties by viewModel.properties.collectAsState()
     PropertiesContent(
         properties = properties,
@@ -70,18 +72,18 @@ fun PropertiesScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PropertiesContent(
-    properties : List<PropertyEntity>,
+    properties: List<PropertyEntity>,
     onPropertyClick: (Long) -> Unit,
-    onAddProperty : (String, String?, String) -> Unit,
-){
+    onAddProperty: (String, String?, String) -> Unit,
+) {
     var showDialog by remember { mutableStateOf(false) }
 
-    Scaffold (
+    Scaffold(
         topBar = {
             TopAppBar(
                 title = {},
                 actions = {
-                    IconButton( onClick = {showDialog = true}) {
+                    IconButton(onClick = { showDialog = true }) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add Property",
@@ -90,31 +92,41 @@ fun PropertiesContent(
                 }
             )
         }
-    ){ padding ->
-        if(properties.isEmpty()){
-            Box(modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-                contentAlignment = Alignment.Center) {
-                Text("No properties found. Tap the + button to add one.")
+    ) { padding ->
+        if (properties.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                SnaptricEmptyState(
+                    icon = Icons.Default.Home,
+                    title = "No Properties Yet",
+                    description = "Add your first property to start tracking utility readings."
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(SnaptricSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
             ) {
-                items(properties){property ->
-                    PropertyCard(property = property,
-                        onClick = {
-                            onPropertyClick(property.id)
-                        })
+                items(
+                    items = properties,
+                    key = { it.id }
+                ) { property ->
+                    PropertyCard(
+                        property = property,
+                        onClick = { onPropertyClick(property.id) },
+                        modifier = Modifier.animateItem()
+                    )
                 }
             }
         }
-        if(showDialog){
+        if (showDialog) {
             AddPropertyDialog(
                 onDismiss = { showDialog = false },
                 onConfirm = { name, address, icon ->
@@ -127,32 +139,72 @@ fun PropertiesContent(
 }
 
 @Composable
-fun PropertyCard(property : PropertyEntity,
-                 onClick: () -> Unit){
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable{onClick()},
-        elevation = CardDefaults.cardElevation(4.dp)
+fun PropertyCard(
+    property: PropertyEntity,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SnaptricCard(
+        modifier = modifier,
+        onClick = onClick
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start,
-                verticalAlignment = Alignment.CenterVertically) {
+        Column {
+            // Subtle amber accent line at the top
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(MaterialTheme.colorScheme.primary)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(SnaptricSpacing.md),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    // Colored circular background behind the property icon
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = PropertyIconProvider.getIcon(property.iconIdentifier),
+                            contentDescription = "Property icon",
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(SnaptricSpacing.md))
+                    Column {
+                        Text(
+                            text = property.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (!property.address.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(SnaptricSpacing.xs))
+                            Text(
+                                text = property.address,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
                 Icon(
-                    imageVector = PropertyIconProvider.getIcon(property.iconIdentifier),
-                    contentDescription = "Property icon",
-                    modifier = Modifier.size(32.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = "View property",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = property.name, style = MaterialTheme.typography.titleLarge)
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-            if (!property.address.isNullOrBlank()){
-                Text(text = property.address, style = MaterialTheme.typography.bodyMedium)
-            }
-            else{
-                Text(text = "", style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -160,18 +212,26 @@ fun PropertyCard(property : PropertyEntity,
 
 @Composable
 fun AddPropertyDialog(
-    onDismiss : () -> Unit,
-    onConfirm : (String, String?, String) -> Unit
-){
+    onDismiss: () -> Unit,
+    onConfirm: (String, String?, String) -> Unit
+) {
     var name by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var selectedIcon by remember { mutableStateOf("home") } // default icon key
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add New Property") },
+        title = {
+            Text(
+                text = "Add New Property",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -184,33 +244,37 @@ fun AddPropertyDialog(
                     label = { Text("Address (Optional)") },
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text("Select Icon", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    text = "Select Icon",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)
                 ) {
-                    for((id, icon) in PropertyIconProvider.IconsList) {
+                    for ((id, icon) in PropertyIconProvider.IconsList) {
                         val isSelected = selectedIcon == id
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if(isSelected) MaterialTheme.colorScheme.primaryContainer
+                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
                                     else MaterialTheme.colorScheme.surface
                                 )
                                 .border(
                                     width = 2.dp,
-                                    if(isSelected) MaterialTheme.colorScheme.primary
+                                    if (isSelected) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.surfaceVariant
                                 )
-                                .clickable{selectedIcon=id},
+                                .clickable { selectedIcon = id },
                             contentAlignment = Alignment.Center
-                        ){
+                        ) {
                             Icon(
                                 imageVector = icon,
                                 contentDescription = "Icon for $id",
-                                tint = if(isSelected) MaterialTheme.colorScheme.primary
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -220,13 +284,13 @@ fun AddPropertyDialog(
         },
         confirmButton = {
             Button(
-                onClick = {onConfirm(name, address.ifBlank { null }, selectedIcon)},
+                onClick = { onConfirm(name, address.ifBlank { null }, selectedIcon) },
                 enabled = name.isNotBlank()
-            ){
+            ) {
                 Text("Save")
             }
         },
-        dismissButton ={
+        dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Cancel")
             }
@@ -243,7 +307,7 @@ object PropertyIconProvider {
         "villa" to Icons.Default.Villa
     )
 
-    fun getIcon(identifier : String) : ImageVector {
+    fun getIcon(identifier: String): ImageVector {
         return IconsList[identifier] ?: Icons.Default.Home
     }
 }
@@ -252,13 +316,13 @@ object PropertyIconProvider {
 @Composable
 fun PropertiesPreview() {
     val mockProperties = listOf(
-        PropertyEntity(id = 1, name = "My Home", address = "123 Main St"),
-        PropertyEntity(id = 2, name = "Office", address = null)
+        PropertyEntity(id = 1, name = "My Home", address = "123 Main St", iconIdentifier = "home"),
+        PropertyEntity(id = 2, name = "Office", address = null, iconIdentifier = "business")
     )
     SnaptricTheme {
         PropertiesContent(
             properties = mockProperties,
-            onPropertyClick = { id  -> }, // Do nothing in preview
+            onPropertyClick = { }, // Do nothing in preview
             onAddProperty = { _, _, _ -> } // Do nothing in preview
         )
     }
@@ -278,3 +342,14 @@ fun AddPropertyDialogPreview() {
     }
 }
 
+@Preview(showBackground = true)
+@Composable
+fun PropertiesEmptyPreview() {
+    SnaptricTheme {
+        PropertiesContent(
+            properties = emptyList(),
+            onPropertyClick = { },
+            onAddProperty = { _, _, _ -> }
+        )
+    }
+}

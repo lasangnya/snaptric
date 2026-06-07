@@ -1,5 +1,11 @@
 package com.snaptric.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -24,7 +30,39 @@ fun AppNavHost(
     NavHost(
         navController = navController,
         startDestination = TopLevelDestination.Home.route,
-        modifier = modifier
+        modifier = modifier,
+        enterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeIn(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        },
+        exitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { -it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeOut(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        },
+        popEnterTransition = {
+            slideInHorizontally(
+                initialOffsetX = { -it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeIn(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        },
+        popExitTransition = {
+            slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            ) + fadeOut(
+                animationSpec = tween(300, easing = FastOutSlowInEasing)
+            )
+        }
     ){
         composable(TopLevelDestination.Home.route){
             val viewModel : HomeViewModel = hiltViewModel()
