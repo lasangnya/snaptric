@@ -1,6 +1,7 @@
 package com.snaptric.feature.properties.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +54,8 @@ import com.snaptric.feature.properties.viewmodel.PropertyDetailViewModel
 @Composable
 fun PropertyDetailScreen(
     viewModel: PropertyDetailViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onUtilityClick : (Long) -> Unit
 ){
     val utilities by viewModel.utilities.collectAsState()
 
@@ -62,7 +64,8 @@ fun PropertyDetailScreen(
         onBack = onBack,
         onAddUtility = { type, unit, initialReading, name ->
             viewModel.addUtility(type, unit, initialReading, name)
-        }
+        },
+        onUtilityClick = onUtilityClick
     )
 }
 
@@ -71,7 +74,8 @@ fun PropertyDetailScreen(
 fun PropertyDetailContent(
     utilities : List<UtilityEntity>,
     onBack: () -> Unit,
-    onAddUtility : (UtilityType, String, Double, String?) -> Unit
+    onAddUtility : (UtilityType, String, Double, String?) -> Unit,
+    onUtilityClick: (Long) -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
@@ -112,7 +116,7 @@ fun PropertyDetailContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(utilities) { utility ->
-                    UtilityCard(utility)
+                    UtilityCard(utility, onClick = { onUtilityClick(utility.id) })
                 }
             }
         }
@@ -129,7 +133,8 @@ fun PropertyDetailContent(
 }
 
 @Composable
-fun UtilityCard(utility: UtilityEntity) {
+fun UtilityCard(utility: UtilityEntity,
+                onClick : () -> Unit) {
     val color = when(utility.type){
         UtilityType.GAS -> Color(0xFFFF9800)
         UtilityType.ELECTRICITY -> Color(0xFFFFEB3B)
@@ -137,6 +142,7 @@ fun UtilityCard(utility: UtilityEntity) {
     }
     Card(
         modifier = Modifier.fillMaxWidth()
+            .clickable{onClick()}
     ) {
         Row(modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically) {

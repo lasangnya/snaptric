@@ -13,6 +13,7 @@ import com.snaptric.feature.home.ui.HomeScreen
 import com.snaptric.feature.home.viewmodel.HomeViewModel
 import com.snaptric.feature.properties.ui.PropertiesScreen
 import com.snaptric.feature.properties.ui.PropertyDetailScreen
+import com.snaptric.feature.properties.ui.UtilityScreen
 import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
 @Composable
@@ -40,6 +41,17 @@ fun AppNavHost(
             arguments = listOf(navArgument("propertyId") { type = NavType.LongType })
         ) {
             PropertyDetailScreen(
+                onBack = { navController.popBackStack() },
+                onUtilityClick = { utilityId ->
+                    navController.navigate("utility_detail/$utilityId")
+                }
+            )
+        }
+        composable(
+            route = "utility_detail/{utilityId}",
+            arguments = listOf(navArgument("utilityId") { type = NavType.LongType })
+        ) {
+            UtilityScreen(
                 onBack = { navController.popBackStack() }
             )
         }
