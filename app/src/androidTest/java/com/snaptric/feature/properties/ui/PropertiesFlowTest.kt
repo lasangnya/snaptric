@@ -1,14 +1,13 @@
 package com.snaptric.feature.properties.ui
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotDisplayed
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.designsystem.theme.SnaptricTheme

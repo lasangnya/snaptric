@@ -138,7 +138,7 @@ fun ReadingBarChart(
         readings
             .groupBy { reading ->
                 cal.timeInMillis = reading.timestamp
-                "${cal.get(java.util.Calendar.YEAR)}-${String.format("%02d", cal.get(java.util.Calendar.MONTH) + 1)}"
+                "${cal.get(java.util.Calendar.YEAR)}-${String.format(Locale.getDefault(), "%02d", cal.get(java.util.Calendar.MONTH) + 1)}"
             }
             .mapValues { (_, monthReadings) ->
                 val values = monthReadings.map { it.value }
