@@ -49,6 +49,10 @@ import com.snaptric.feature.properties.viewmodel.UtilityViewModel
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Entry point for the Utility detail screen.
+ * Connects the [UtilityViewModel] to the [UtilityDetailContent] composable.
+ */
 @Composable
 fun UtilityScreen(
     viewModel: UtilityViewModel = hiltViewModel(),
@@ -61,6 +65,10 @@ fun UtilityScreen(
     )
 }
 
+/**
+ * UI content for the Utility detail screen.
+ * Displays a consumption chart and a chronological list of all readings for a specific meter.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UtilityDetailContent(
@@ -100,6 +108,7 @@ fun UtilityDetailContent(
                 contentPadding = PaddingValues(SnaptricSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)
             ) {
+                // Section 1: Monthly consumption bar chart.
                 item {
                     ReadingBarChart(
                         readings = readings,
@@ -108,6 +117,8 @@ fun UtilityDetailContent(
                             .padding(bottom = SnaptricSpacing.sm)
                     )
                 }
+                
+                // Section 2: List of individual historical readings.
                 itemsIndexed(readings, key = { _, it -> it.id }) { index, reading ->
                     val gap = readings.getOrNull(index + 1)?.let { reading.value - it.value }
                     ReadingHistoryItem(
@@ -120,6 +131,7 @@ fun UtilityDetailContent(
         }
     }
 }
+
 
 /**
  * Groups readings by month (YYYY-MM), calculates consumption per month

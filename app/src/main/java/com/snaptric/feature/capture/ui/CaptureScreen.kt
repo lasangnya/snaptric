@@ -82,6 +82,10 @@ import com.snaptric.core.designsystem.theme.Charcoal20
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.feature.capture.viewmodel.CaptureViewModel
 
+/**
+ * CaptureScreen provides the camera interface for scanning meter readings.
+ * It handles camera initialization, permissions check, and real-time UI overlays.
+ */
 @Composable
 fun CaptureScreen(
     viewModel: CaptureViewModel = hiltViewModel(),
@@ -100,6 +104,7 @@ fun CaptureScreen(
     val capturedBitmap by viewModel.capturedBitmap.collectAsState()
 
 
+    // Verify camera permission is granted before showing the preview.
     val hasCameraPermission = remember {
         ContextCompat.checkSelfPermission(
             context,
@@ -111,14 +116,14 @@ fun CaptureScreen(
         return
     }
 
-    // Auto-select first property if none selected
+    // Auto-select first property if none selected to simplify the flow.
     LaunchedEffect(properties) {
         if (viewModel.selectedPropertyId.value == null && properties.isNotEmpty()) {
             viewModel.onPropertySelected(properties.first().id)
         }
     }
 
-    // Camera Setup
+    // CameraX setup: Binds the camera preview and image capture use cases to the lifecycle.
     LaunchedEffect(Unit) {
         val cameraProvider = ProcessCameraProvider.getInstance(context).get()
         val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
@@ -131,13 +136,16 @@ fun CaptureScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        AndroidView( // Camera preview
+        // The live camera feed.
+        AndroidView( 
             factory = { previewView },
             modifier = Modifier.fillMaxSize()
         )
-        // rectangle cutout
+        
+        // Draw the visual guides (rectangle and scanning line).
         CaptureOverlay()
-        // Close button
+        
+        // Button to exit the capture screen.
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -156,10 +164,12 @@ fun CaptureScreen(
                 )
             }
         }
+        
+        // Show a loading indicator while the AI is processing the image.
         if (isAnalyzing) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Color.White)
         } else {
-            // Capture Button
+            // Main Capture Button
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -171,17 +181,18 @@ fun CaptureScreen(
             ) {
                 IconButton(
                     onClick = {
+                        // Take the picture and handle the captured image proxy.
                         imageCapture.takePicture(
                             ContextCompat.getMainExecutor(context),
                             object : ImageCapture.OnImageCapturedCallback() {
                                 override fun onCaptureSuccess(image: ImageProxy) {
-                                    // 1. Get rotation from the camera sensor
+                                    // 1. Get rotation from the camera sensor to ensure upright image.
                                     val rotationDegrees = image.imageInfo.rotationDegrees
 
                                     // 2. Convert to Bitmap
                                     val rawBitmap = image.toBitmap()
 
-                                    // 3. Rotate the bitmap so it is "Upright" (matches what you see)
+                                    // 3. Rotate the bitmap to match the visual orientation.
                                     val rotatedBitmap = if (rotationDegrees != 0) {
                                         val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
                                         Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
@@ -189,10 +200,10 @@ fun CaptureScreen(
                                         rawBitmap
                                     }
 
-                                    // 4. NOW crop the rotated bitmap using UI percentages
+                                    // 4. Crop the bitmap to only include the area inside the UI overlay.
                                     val croppedBitmap = cropToCenterStrip(rotatedBitmap)
 
-                                    // 5. Send to AI and clean up
+                                    // 5. Send the cropped image to the ViewModel for AI analysis.
                                     viewModel.analyzeAndShowDialog(croppedBitmap)
                                     image.close()
                                 }
@@ -206,7 +217,8 @@ fun CaptureScreen(
                 }
             }
         }
-        // CONFIRMATION DIALOG
+        
+        // Display the confirmation dialog once the AI has detected a value.
         capturedValue?.let { value ->
             ConfirmReadingDialog(
                 detectedValue = value,
@@ -216,7 +228,7 @@ fun CaptureScreen(
                 onDismiss = { viewModel.clearCapturedValue() },
                 onSave = {reading, utilId ->
                     viewModel.saveReading(reading, utilId)
-                    onClose() // Go home after save
+                    onClose() // Go back home after successful save.
                 },
                 capturedBitmap = capturedBitmap
             )
@@ -224,10 +236,15 @@ fun CaptureScreen(
     }
 }
 
+/**
+ * CaptureOverlay draws a scanning rectangle and a moving scan line animation
+ * to help the user align the meter reading within the target area.
+ */
 @Composable
 fun CaptureOverlay(){
     val infiniteTransition = rememberInfiniteTransition(label = "overlay")
 
+    // Pulsing effect for the border alpha.
     val borderAlpha by infiniteTransition.animateFloat(
         initialValue = 0.5f,
         targetValue = 1f,
@@ -238,6 +255,7 @@ fun CaptureOverlay(){
         label = "borderAlpha"
     )
 
+    // Vertical progress for the scanning line animation.
     val scanLineProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -255,7 +273,7 @@ fun CaptureOverlay(){
         val cornerBracketStroke = 3.dp.toPx()
         val cornerInset = 4.dp.toPx()
 
-        // cutout
+        // Calculate the scanning rectangle dimensions (80% width, 10% height).
         val rectWidth = size.width * 0.8f
         val rectHeight = size.height * 0.10f
         val left = (size.width - rectWidth) / 2
@@ -271,75 +289,37 @@ fun CaptureOverlay(){
                 )
             )
         }
-        // draw dimmed background except the cutout
+        
+        // 1. Dim the background area outside the scanning rectangle.
         clipPath(rectPath, clipOp = ClipOp.Difference){
             drawRect(Color.Black.copy(alpha = 0.6f))
         }
-        // draw pulsing amber border around the cutout
+        
+        // 2. Draw the pulsing main border.
         drawPath(
             path = rectPath,
             color = Amber70.copy(alpha = borderAlpha),
             style = Stroke(width = strokeWidth)
         )
 
-        // Corner brackets
+        // 3. Draw high-visibility corner brackets.
         // Top-left
-        drawLine(
-            color = Amber70,
-            start = Offset(left + cornerInset, top + cornerInset),
-            end = Offset(left + cornerInset + cornerBracketLength, top + cornerInset),
-            strokeWidth = cornerBracketStroke
-        )
-        drawLine(
-            color = Amber70,
-            start = Offset(left + cornerInset, top + cornerInset),
-            end = Offset(left + cornerInset, top + cornerInset + cornerBracketLength),
-            strokeWidth = cornerBracketStroke
-        )
+        drawLine(color = Amber70, start = Offset(left + cornerInset, top + cornerInset), end = Offset(left + cornerInset + cornerBracketLength, top + cornerInset), strokeWidth = cornerBracketStroke)
+        drawLine(color = Amber70, start = Offset(left + cornerInset, top + cornerInset), end = Offset(left + cornerInset, top + cornerInset + cornerBracketLength), strokeWidth = cornerBracketStroke)
 
         // Top-right
-        drawLine(
-            color = Amber70,
-            start = Offset(right - cornerInset, top + cornerInset),
-            end = Offset(right - cornerInset - cornerBracketLength, top + cornerInset),
-            strokeWidth = cornerBracketStroke
-        )
-        drawLine(
-            color = Amber70,
-            start = Offset(right - cornerInset, top + cornerInset),
-            end = Offset(right - cornerInset, top + cornerInset + cornerBracketLength),
-            strokeWidth = cornerBracketStroke
-        )
+        drawLine(color = Amber70, start = Offset(right - cornerInset, top + cornerInset), end = Offset(right - cornerInset - cornerBracketLength, top + cornerInset), strokeWidth = cornerBracketStroke)
+        drawLine(color = Amber70, start = Offset(right - cornerInset, top + cornerInset), end = Offset(right - cornerInset, top + cornerInset + cornerBracketLength), strokeWidth = cornerBracketStroke)
 
         // Bottom-left
-        drawLine(
-            color = Amber70,
-            start = Offset(left + cornerInset, bottom - cornerInset),
-            end = Offset(left + cornerInset + cornerBracketLength, bottom - cornerInset),
-            strokeWidth = cornerBracketStroke
-        )
-        drawLine(
-            color = Amber70,
-            start = Offset(left + cornerInset, bottom - cornerInset),
-            end = Offset(left + cornerInset, bottom - cornerInset - cornerBracketLength),
-            strokeWidth = cornerBracketStroke
-        )
+        drawLine(color = Amber70, start = Offset(left + cornerInset, bottom - cornerInset), end = Offset(left + cornerInset + cornerBracketLength, bottom - cornerInset), strokeWidth = cornerBracketStroke)
+        drawLine(color = Amber70, start = Offset(left + cornerInset, bottom - cornerInset), end = Offset(left + cornerInset, bottom - cornerInset - cornerBracketLength), strokeWidth = cornerBracketStroke)
 
         // Bottom-right
-        drawLine(
-            color = Amber70,
-            start = Offset(right - cornerInset, bottom - cornerInset),
-            end = Offset(right - cornerInset - cornerBracketLength, bottom - cornerInset),
-            strokeWidth = cornerBracketStroke
-        )
-        drawLine(
-            color = Amber70,
-            start = Offset(right - cornerInset, bottom - cornerInset),
-            end = Offset(right - cornerInset, bottom - cornerInset - cornerBracketLength),
-            strokeWidth = cornerBracketStroke
-        )
+        drawLine(color = Amber70, start = Offset(right - cornerInset, bottom - cornerInset), end = Offset(right - cornerInset - cornerBracketLength, bottom - cornerInset), strokeWidth = cornerBracketStroke)
+        drawLine(color = Amber70, start = Offset(right - cornerInset, bottom - cornerInset), end = Offset(right - cornerInset, bottom - cornerInset - cornerBracketLength), strokeWidth = cornerBracketStroke)
 
-        // Scanning line
+        // 4. Draw the animated scanning line.
         val scanY = top + rectHeight * scanLineProgress
         drawLine(
             color = Amber70.copy(alpha = 0.7f),
@@ -350,11 +330,15 @@ fun CaptureOverlay(){
     }
 }
 
+/**
+ * Crops the provided bitmap to match the scanning rectangle's relative size in the UI.
+ * This ensures the AI only processes the relevant part of the photo.
+ */
 private fun cropToCenterStrip(bitmap: Bitmap) : Bitmap{
     val width = bitmap.width
     val height = bitmap.height
 
-    // Match UI: 80% width, 10% height
+    // Match UI proportions: 80% width, 10% height.
     val rectWidth = (width * 0.8f).toInt()
     val rectHeight = (height * 0.10f).toInt()
 
@@ -364,6 +348,10 @@ private fun cropToCenterStrip(bitmap: Bitmap) : Bitmap{
     return Bitmap.createBitmap(bitmap, left, top, rectWidth, rectHeight)
 }
 
+/**
+ * A dialog for the user to review the AI-detected meter reading,
+ * edit it if necessary, and select which property/meter it belongs to.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmReadingDialog(
@@ -378,7 +366,7 @@ fun ConfirmReadingDialog(
     var editedValue by remember { mutableStateOf(detectedValue) }
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
 
-    // auto select the first property when list loads
+    // Auto-select the first available utility (meter) for the selected property.
     LaunchedEffect(utilities) {
         if(selectedUtilityId == null || !utilities.any{ it.id == selectedUtilityId }) {
             selectedUtilityId = utilities.firstOrNull()?.id
@@ -406,6 +394,7 @@ fun ConfirmReadingDialog(
                 verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm),
                 modifier = Modifier.padding(SnaptricSpacing.sm)
             ) {
+                // Show the cropped image that was used for detection.
                 capturedBitmap?.let { bitmap ->
                     Image(
                         bitmap = bitmap.asImageBitmap(),
@@ -417,6 +406,8 @@ fun ConfirmReadingDialog(
                             .background(Color.DarkGray)
                     )
                 }
+                
+                // Allow manual correction of the reading.
                 OutlinedTextField(
                     value = editedValue,
                     onValueChange = { editedValue = it },
@@ -429,11 +420,11 @@ fun ConfirmReadingDialog(
                 )
 
                 Text("Select Property", style = MaterialTheme.typography.labelSmall)
-                // Property selection (Horizontal chips for speed)
+                // Quick property selection.
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
                     items(properties) { prop ->
                         FilterChip(
-                            selected = false, // Add logic to track selected property
+                            selected = false, // TODO: Add logic to track selected property highlighting
                             onClick = { onPropertySelected(prop.id) },
                             label = { Text(prop.name) }
                         )
@@ -441,7 +432,7 @@ fun ConfirmReadingDialog(
                 }
 
                 Text("Select Meter", style = MaterialTheme.typography.labelSmall)
-                // Utility selection
+                // Quick utility/meter selection.
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
                     items(utilities) { util ->
                         FilterChip(

@@ -10,9 +10,16 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * Hilt module for providing database-related dependencies.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+    
+    /**
+     * Provides the singleton instance of the [SnaptricDatabase].
+     */
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context) : SnaptricDatabase{
@@ -23,6 +30,9 @@ object DatabaseModule {
         ).build()
     }
 
+    /**
+     * Provides the [MeterDao] for performing database operations on meters and readings.
+     */
     @Provides
     fun provideMeterDao(db : SnaptricDatabase) = db.meterDao()
 }

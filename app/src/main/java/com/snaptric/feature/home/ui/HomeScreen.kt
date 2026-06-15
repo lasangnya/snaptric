@@ -43,6 +43,10 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+/**
+ * The entry point for the Home screen.
+ * Connects the [HomeViewModel] to the [HomeContent] composable.
+ */
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
@@ -60,6 +64,10 @@ fun HomeScreen(
     )
 }
 
+/**
+ * The main UI content of the Home screen.
+ * Displays a welcome message, high-level stats, and a list of recent activities.
+ */
 @Composable
 fun HomeContent(
     isAnalyzing: Boolean,
@@ -68,7 +76,10 @@ fun HomeContent(
     readings: List<ReadingEntity>,
     modifier: Modifier = Modifier
 ) {
+    // Determine the appropriate greeting based on the current time of day.
     val greeting = remember { getGreeting() }
+    
+    // Show only the 5 most recent readings in the summary list.
     val recentReadings = remember(readings) {
         readings.sortedByDescending { it.timestamp }.take(5)
     }
@@ -78,6 +89,7 @@ fun HomeContent(
         contentPadding = PaddingValues(SnaptricSpacing.md),
         verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.lg)
     ) {
+        // Welcome section with a slide-in animation.
         item {
             AnimatedVisibility(
                 visible = true,
@@ -99,6 +111,7 @@ fun HomeContent(
             }
         }
 
+        // Stats summary row (Properties, total readings, and the very latest value).
         item {
             AnimatedVisibility(
                 visible = true,
@@ -131,6 +144,7 @@ fun HomeContent(
             }
         }
 
+        // Recent Activity list section.
         item {
             AnimatedVisibility(
                 visible = true,
@@ -147,6 +161,7 @@ fun HomeContent(
                         )
                     } else {
                         recentReadings.forEachIndexed { index, reading ->
+                            // Calculate the difference between this reading and the previous one for a simple consumption hint.
                             val gap = recentReadings.getOrNull(index + 1)?.let { reading.value - it.value }
                             SnaptricCard(
                                 modifier = Modifier.fillMaxWidth()
@@ -187,6 +202,7 @@ fun HomeContent(
             }
         }
 
+        // Status indicator shown when AI is busy in the background.
         if (isAnalyzing) {
             item {
                 AnimatedVisibility(
@@ -204,6 +220,7 @@ fun HomeContent(
         }
     }
 }
+
 
 private fun getGreeting(): String {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)

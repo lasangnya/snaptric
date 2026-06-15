@@ -50,7 +50,7 @@ The project follows modern Android development patterns to ensure the code is te
 
 1. **Clone the repo**:
    ```bash
-   git clone https://github.com/yourusername/snaptric.git
+   git clone https://github.com/lasangnya/snaptric.git
    ```
 2. **Open in Android Studio**: Use Ladybug or newer.
 3. **Run on Device**: A physical device is required to test the CameraX and ML Kit features accurately.

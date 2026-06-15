@@ -6,6 +6,10 @@ import androidx.room.TypeConverters
 import com.snaptric.core.database.converter.DatabaseConverters
 import com.snaptric.core.database.dao.MeterDao
 
+/**
+ * The main Room database for the Snaptric application.
+ * It stores property information, utility meters, and historical meter readings.
+ */
 @Database(
     entities = [
         com.snaptric.core.database.entity.PropertyEntity::class,
@@ -17,5 +21,8 @@ import com.snaptric.core.database.dao.MeterDao
 )
 @TypeConverters(DatabaseConverters::class)
 abstract class SnaptricDatabase : RoomDatabase() {
+    /**
+     * Access point for all meter and reading-related database operations.
+     */
     abstract fun meterDao(): MeterDao
 }

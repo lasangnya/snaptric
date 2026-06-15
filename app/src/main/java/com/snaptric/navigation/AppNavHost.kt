@@ -22,6 +22,10 @@ import com.snaptric.feature.properties.ui.PropertyDetailScreen
 import com.snaptric.feature.properties.ui.UtilityScreen
 import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
+/**
+ * The main navigation graph for the Snaptric application.
+ * Defines all routes and their corresponding UI screens, along with custom transitions.
+ */
 @Composable
 fun AppNavHost(
     navController: NavHostController,
@@ -31,6 +35,7 @@ fun AppNavHost(
         navController = navController,
         startDestination = TopLevelDestination.Home.route,
         modifier = modifier,
+        // Slide and fade transitions for a modern feel.
         enterTransition = {
             slideInHorizontally(
                 initialOffsetX = { it },
@@ -64,16 +69,21 @@ fun AppNavHost(
             )
         }
     ){
+        // Home Screen: Dashboard summary.
         composable(TopLevelDestination.Home.route){
             val viewModel : HomeViewModel = hiltViewModel()
             HomeScreen(viewModel)
         }
+        
+        // Properties Screen: List of properties.
         composable(TopLevelDestination.Properties.route){
             val viewModel : PropertyViewModel = hiltViewModel()
             PropertiesScreen(viewModel, onPropertyClick = { propertyId ->
                 navController.navigate("property_detail/$propertyId")
             })
         }
+        
+        // Property Detail: Specific meters for a property.
         composable(
             route = "property_detail/{propertyId}",
             arguments = listOf(navArgument("propertyId") { type = NavType.LongType })
@@ -85,6 +95,8 @@ fun AppNavHost(
                 }
             )
         }
+        
+        // Utility Detail: Reading history and chart for a meter.
         composable(
             route = "utility_detail/{utilityId}",
             arguments = listOf(navArgument("utilityId") { type = NavType.LongType })
@@ -93,12 +105,17 @@ fun AppNavHost(
                 onBack = { navController.popBackStack() }
             )
         }
+        
+        // Settings Screen: App preferences.
         composable(TopLevelDestination.Settings.route){
             /* TODO : Add settings screen */
         }
+        
+        // Capture Screen: The camera-based meter scanning interface.
         composable("capture") {
             CaptureScreen(
                 onClose = { navController.popBackStack() }
             ) }
     }
 }
+

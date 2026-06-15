@@ -57,6 +57,10 @@ import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
+/**
+ * Entry point for the Properties management screen.
+ * Connects the [PropertyViewModel] to the [PropertiesContent] composable.
+ */
 @Composable
 fun PropertiesScreen(
     viewModel: PropertyViewModel = hiltViewModel(),
@@ -69,6 +73,10 @@ fun PropertiesScreen(
     ) { name, address, icon -> viewModel.addProperty(name, address, icon) }
 }
 
+/**
+ * Main UI content for the Properties screen.
+ * Displays a list of all physical properties configured by the user.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PropertiesContent(
@@ -81,7 +89,7 @@ fun PropertiesContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                title = { Text("Properties") },
                 actions = {
                     IconButton(onClick = { showDialog = true }) {
                         Icon(
@@ -126,6 +134,8 @@ fun PropertiesContent(
                 }
             }
         }
+        
+        // Modal dialog for entering new property details.
         if (showDialog) {
             AddPropertyDialog(
                 onDismiss = { showDialog = false },
@@ -137,6 +147,7 @@ fun PropertiesContent(
         }
     }
 }
+
 
 @Composable
 fun PropertyCard(

@@ -60,6 +60,10 @@ import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.core.designsystem.theme.WaterBlue
 import com.snaptric.feature.properties.viewmodel.PropertyDetailViewModel
 
+/**
+ * Entry point for the Property Detail screen.
+ * Connects the [PropertyDetailViewModel] to the [PropertyDetailContent] composable.
+ */
 @Composable
 fun PropertyDetailScreen(
     viewModel: PropertyDetailViewModel = hiltViewModel(),
@@ -78,6 +82,10 @@ fun PropertyDetailScreen(
     )
 }
 
+/**
+ * UI content for the Property Detail screen.
+ * Displays a list of all meters (utilities) configured for the current property.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PropertyDetailContent(
@@ -154,7 +162,8 @@ fun PropertyDetailContent(
                 }
             }
         }
-
+        
+        // Modal dialog for configuring a new meter.
         if (showAddDialog) {
             AddUtilityDialog(
                 onDismiss = { showAddDialog = false },
@@ -166,6 +175,7 @@ fun PropertyDetailContent(
         }
     }
 }
+
 
 @Composable
 fun UtilityCard(
