@@ -99,12 +99,18 @@ private val DarkColorScheme = darkColorScheme(
     scrim = Charcoal10.copy(alpha = 0.8f)
 )
 
+/**
+ * Main theme configuration for the Snaptric application.
+ * Defines the light and dark color schemes based on the Amber/Charcoal palette
+ * and sets up the Material 3 theme.
+ */
 @Composable
 fun SnaptricTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false, // Disabled by default to preserve brand identity
     content: @Composable () -> Unit
 ) {
+
     val colorScheme = when {
         dynamicColor -> {
             val context = LocalContext.current

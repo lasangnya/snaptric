@@ -11,11 +11,18 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel for the [PropertiesScreen].
+ * Handles the listing and addition of properties.
+ */
 @HiltViewModel
 class PropertyViewModel @Inject constructor(
     private val meterDao: MeterDao
 ) : ViewModel() {
 
+    /**
+     * Observable flow of all available properties.
+     */
      val properties: StateFlow<List<PropertyEntity>> = meterDao.getAllProperties()
          .stateIn(
              scope = viewModelScope,
@@ -23,6 +30,9 @@ class PropertyViewModel @Inject constructor(
              initialValue = emptyList()
          )
 
+    /**
+     * Creates and persists a new property record.
+     */
     fun addProperty(name : String, address : String?, iconIdentifier: String?){
         viewModelScope.launch {
             val newProperty = PropertyEntity(

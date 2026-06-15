@@ -17,39 +17,53 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * ViewModel for the [CaptureScreen].
+ * Manages the camera capture state, image analysis via AI, and saving the results to the database.
+ */
 @HiltViewModel
 class CaptureViewModel @Inject constructor(
     private val meterReadingAnalyzer: MeterReadingAnalyzer,
     private val meterDao: MeterDao
 ) : ViewModel() {
 
+    // The bitmap captured from the camera, used for display in the confirmation dialog.
     private val _capturedBitmap = MutableStateFlow<Bitmap?>(null)
     val capturedBitmap = _capturedBitmap.asStateFlow()
 
+    // Flag indicating if an analysis process is currently running.
     private val _isAnalyzing = MutableStateFlow(false)
     val isAnalyzing = _isAnalyzing.asStateFlow()
 
-    // hold the result from MLkit
+    // The string result returned from the AI analyzer.
     private val _capturedValue = MutableStateFlow<String?>(null)
     val capturedValue = _capturedValue.asStateFlow()
 
-    // data for selectors
+    // Observable list of all properties to allow the user to select the destination for the reading.
     val properties = meterDao.getAllProperties()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Track selected property and load its meters
+    // Tracks the user-selected property ID.
     val selectedPropertyId = MutableStateFlow<Long?>(null)
 
-
+    // Observable list of utilities (meters) filtered by the selected property.
     @OptIn(ExperimentalCoroutinesApi::class)
     val utilities = selectedPropertyId.flatMapLatest { id ->
             if (id ==null) flowOf(emptyList())
             else meterDao.getUtilitiesForProperty(id)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /**
+     * Updates the selected property and triggers a refresh of the utilities list.
+     */
     fun onPropertySelected(id: Long) {
         selectedPropertyId.value = id
     }
+    
+    /**
+     * Triggers the AI analysis on the provided [bitmap].
+     * Updates the [_isAnalyzing] and [_capturedValue] states.
+     */
     fun analyzeAndShowDialog(bitmap: Bitmap) {
         _capturedBitmap.value =bitmap
         viewModelScope.launch {
@@ -63,6 +77,9 @@ class CaptureViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Persists the confirmed reading to the database.
+     */
     fun saveReading(value : Double, utilityId : Long){
         viewModelScope.launch {
             meterDao.insertReading(
@@ -76,5 +93,9 @@ class CaptureViewModel @Inject constructor(
             _capturedValue.value = null // reset to close the dialog
         }
     }
+    
+    /**
+     * Clears the current captured value to dismiss the confirmation dialog.
+     */
     fun clearCapturedValue(){_capturedValue.value = null}
 }

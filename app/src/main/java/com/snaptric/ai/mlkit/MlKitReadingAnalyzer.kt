@@ -9,18 +9,26 @@ import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.Reading
 import kotlinx.coroutines.tasks.await
 
+/**
+ * An implementation of [MeterReadingAnalyzer] that uses Google ML Kit's Text Recognition.
+ * This analyzer extracts numeric sequences from a bitmap.
+ */
 class MlKitReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer {
-    // Initialize the ML kit text recognizer
+    // Initialize the ML Kit text recognizer with default Latin script options.
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
+    /**
+     * Processes the given [bitmap] to extract a meter reading.
+     * Uses Coroutines tasks.await() to handle the asynchronous ML Kit operation.
+     */
     override suspend fun analyze(bitmap: Bitmap): Reading {
-        // prepare the image
+        // Prepare the image for ML Kit.
         val image = InputImage.fromBitmap(bitmap, 0)
 
-        // process the image using the Mlkit and wait for results
+        // Process the image and wait for the results.
         val result = recognizer.process(image).await()
 
-        // extract recognized text and keep only digits
+        // Extract recognized text and keep only digits to find the meter value.
         val readingValue = result.text.filter { it.isDigit() }
 
         return Reading(
