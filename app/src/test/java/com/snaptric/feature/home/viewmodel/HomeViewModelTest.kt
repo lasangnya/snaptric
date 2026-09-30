@@ -5,6 +5,7 @@ import com.snaptric.MainDispatcherRule
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.domain.insights.TemplateInsightWriter
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
@@ -21,7 +22,7 @@ class HomeViewModelTest {
     private val meterDao: MeterDao = mockk()
 
     private fun createViewModel(): HomeViewModel {
-        return HomeViewModel(meterDao)
+        return HomeViewModel(meterDao, TemplateInsightWriter())
     }
 
     @Test

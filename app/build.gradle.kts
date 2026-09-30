@@ -77,8 +77,8 @@ dependencies {
     // ML Kit
     implementation(libs.mlkit.text.recognition)
 
-    // Gemma
-    implementation(libs.mediapipe.tasks.genai)
+    // Gemma, via LiteRT-LM (replaces the deprecated MediaPipe LLM Inference API)
+    implementation(libs.litertlm.android)
 
     // Hilt
     implementation(libs.hilt.android)

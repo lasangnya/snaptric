@@ -64,8 +64,9 @@ local.properties
 workspace.xml
 .idea/workspace.xml
 
-#Gemma model
-/app/src/main/assets/gemma*
+# On-device models (pushed to the device, never bundled)
+*.litertlm
+*.task
 
 # macOS AppleDouble files (created on non-APFS volumes)
 ._*

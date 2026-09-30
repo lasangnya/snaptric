@@ -35,6 +35,9 @@ class CaptureViewModel @Inject constructor(
     private val _isAnalyzing = MutableStateFlow(false)
     val isAnalyzing = _isAnalyzing.asStateFlow()
 
+    // Which engine produced the current value (e.g. "MLKit" or "Gemma"), saved with the reading.
+    private var capturedSource: String = "MLKit"
+
     // The string result returned from the AI analyzer.
     private val _capturedValue = MutableStateFlow<String?>(null)
     val capturedValue = _capturedValue.asStateFlow()
@@ -70,6 +73,7 @@ class CaptureViewModel @Inject constructor(
             _isAnalyzing.value = true
             try {
                 val reading = meterReadingAnalyzer.analyze(bitmap)
+                capturedSource = reading.source
                 _capturedValue.value = reading.value
             } finally {
                 _isAnalyzing.value = false
@@ -87,7 +91,7 @@ class CaptureViewModel @Inject constructor(
                     utilityId = utilityId,
                     value = value,
                     timestamp = System.currentTimeMillis(),
-                    source = "MLKit"
+                    source = capturedSource
                 )
             )
             _capturedValue.value = null // reset to close the dialog
