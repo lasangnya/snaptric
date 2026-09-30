@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "android-clean-architecture": {
+      "source": "affaan-m/ecc",
+      "sourceType": "github",
+      "skillPath": "skills/android-clean-architecture/SKILL.md",
+      "computedHash": "80779b595f194a1ca3d59e36cbf4b29f426faaf90cf9c41dfd61a80442214890"
+    },
+    "find-skills": {
+      "source": "vercel-labs/skills",
+      "sourceType": "github",
+      "skillPath": "skills/find-skills/SKILL.md",
+      "computedHash": "b146008599c31057cef1c145774cea5d5afb30e8f43fa802e47a4b461419aaaf"
+    },
+    "github-actions": {
+      "source": "callstackincubator/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/github-actions/SKILL.md",
+      "computedHash": "c90128be4f55bc8b6dbdcba75ba2a540f3fb89ba91be1ccbe487e01ea70be122"
+    }
+  }
+}
