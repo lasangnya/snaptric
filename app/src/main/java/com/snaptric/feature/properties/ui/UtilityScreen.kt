@@ -1,6 +1,5 @@
 package com.snaptric.feature.properties.ui
 
-import android.icu.text.SimpleDateFormat
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -13,39 +12,64 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.database.entity.UtilityEntity
+import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.components.SnaptricCard
 import com.snaptric.core.designsystem.components.SnaptricEmptyState
+import com.snaptric.core.designsystem.components.UtilityIconBadge
+import com.snaptric.core.designsystem.components.accentColor
+import com.snaptric.core.designsystem.components.formatMeterValue
+import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.core.designsystem.theme.tabularNumbers
+import com.snaptric.core.domain.insights.formatAmount
+import com.snaptric.core.domain.insights.monthlyUsage
 import com.snaptric.feature.properties.viewmodel.UtilityViewModel
+import java.text.SimpleDateFormat
+import java.time.format.TextStyle
 import java.util.Date
 import java.util.Locale
 
@@ -59,32 +83,79 @@ fun UtilityScreen(
     onBack: () -> Unit
 ) {
     val readings by viewModel.readings.collectAsState()
+    val utility by viewModel.utility.collectAsState()
     UtilityDetailContent(
         readings = readings,
-        onBack = onBack
+        onBack = onBack,
+        utility = utility,
+        onAddReading = viewModel::addManualReading,
+        onEditReading = viewModel::updateReading,
+        onDeleteReading = viewModel::deleteReading,
+        onEditUtility = viewModel::updateUtility,
+        onDeleteUtility = {
+            viewModel.deleteUtility()
+            onBack()
+        }
     )
+}
+
+/** Which dialog, if any, the meter screen is showing. */
+private sealed interface UtilityDialog {
+    data object AddReading : UtilityDialog
+    data class EditReading(val reading: ReadingEntity) : UtilityDialog
+    data object EditMeter : UtilityDialog
+    data object DeleteMeter : UtilityDialog
 }
 
 /**
  * UI content for the Utility detail screen.
- * Displays a consumption chart and a chronological list of all readings for a specific meter.
+ * Shows monthly usage, the reading history, and lets the user add, correct or delete readings
+ * and edit or delete the meter.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UtilityDetailContent(
     readings: List<ReadingEntity>,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    utility: UtilityEntity? = null,
+    onAddReading: (Double) -> Unit = {},
+    onEditReading: (ReadingEntity, Double) -> Unit = { _, _ -> },
+    onDeleteReading: (ReadingEntity) -> Unit = {},
+    onEditUtility: (UtilityEntity) -> Unit = {},
+    onDeleteUtility: () -> Unit = {}
 ) {
+    var dialog by remember { mutableStateOf<UtilityDialog?>(null) }
+    val unit = utility?.unit.orEmpty()
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Reading History") },
+                title = { Text(utility?.let { it.name ?: it.type.label } ?: "Reading History") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
+                },
+                actions = {
+                    if (utility != null) {
+                        IconButton(onClick = { dialog = UtilityDialog.EditMeter }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit meter")
+                        }
+                        IconButton(onClick = { dialog = UtilityDialog.DeleteMeter }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete meter")
+                        }
+                    }
                 }
             )
+        },
+        floatingActionButton = {
+            if (readings.isNotEmpty()) {
+                ExtendedFloatingActionButton(
+                    onClick = { dialog = UtilityDialog.AddReading },
+                    icon = { Icon(Icons.Default.Keyboard, contentDescription = null) },
+                    text = { Text("Type a reading") }
+                )
+            }
         }
     ) { padding ->
         if (readings.isEmpty()) {
@@ -97,7 +168,9 @@ fun UtilityDetailContent(
                 SnaptricEmptyState(
                     icon = Icons.Default.History,
                     title = "No Readings Yet",
-                    description = "Use the camera to capture your first meter reading."
+                    description = "Use the camera to capture your first meter reading.",
+                    actionLabel = "Type a reading instead",
+                    onAction = { dialog = UtilityDialog.AddReading }
                 )
             }
         } else {
@@ -105,64 +178,223 @@ fun UtilityDetailContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(SnaptricSpacing.md),
+                contentPadding = PaddingValues(
+                    start = SnaptricSpacing.md,
+                    end = SnaptricSpacing.md,
+                    top = SnaptricSpacing.md,
+                    bottom = 88.dp // clear the floating button
+                ),
                 verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)
             ) {
-                // Section 1: Monthly consumption bar chart.
                 item {
                     ReadingBarChart(
                         readings = readings,
+                        type = utility?.type,
+                        unit = unit,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = SnaptricSpacing.sm)
                     )
                 }
-                
-                // Section 2: List of individual historical readings.
+
                 itemsIndexed(readings, key = { _, it -> it.id }) { index, reading ->
                     val gap = readings.getOrNull(index + 1)?.let { reading.value - it.value }
                     ReadingHistoryItem(
                         reading = reading,
                         gap = gap,
+                        unit = unit,
+                        onClick = { dialog = UtilityDialog.EditReading(reading) },
                         modifier = Modifier.animateItem()
                     )
                 }
             }
         }
     }
+
+    when (val current = dialog) {
+        UtilityDialog.AddReading -> ReadingValueDialog(
+            title = "Type a reading",
+            initialValue = "",
+            unit = unit,
+            onDismiss = { dialog = null },
+            onSave = { value ->
+                onAddReading(value)
+                dialog = null
+            }
+        )
+        is UtilityDialog.EditReading -> ReadingValueDialog(
+            title = "Correct reading",
+            initialValue = formatMeterValue(current.reading.value),
+            unit = unit,
+            onDismiss = { dialog = null },
+            onSave = { value ->
+                onEditReading(current.reading, value)
+                dialog = null
+            },
+            onDelete = {
+                onDeleteReading(current.reading)
+                dialog = null
+            }
+        )
+        UtilityDialog.EditMeter -> if (utility != null) {
+            EditMeterDialog(
+                utility = utility,
+                onDismiss = { dialog = null },
+                onSave = { updated ->
+                    onEditUtility(updated)
+                    dialog = null
+                }
+            )
+        }
+        UtilityDialog.DeleteMeter -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("Delete this meter?") },
+            text = { Text("This removes the meter and all ${readings.size} of its readings. It can't be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        dialog = null
+                        onDeleteUtility()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError
+                    )
+                ) { Text("Delete meter") }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancel") } }
+        )
+        null -> Unit
+    }
 }
 
+/**
+ * Enter or correct a reading's value. Shows a Delete action when editing an existing reading.
+ */
+@Composable
+private fun ReadingValueDialog(
+    title: String,
+    initialValue: String,
+    unit: String,
+    onDismiss: () -> Unit,
+    onSave: (Double) -> Unit,
+    onDelete: (() -> Unit)? = null
+) {
+    var text by remember { mutableStateOf(initialValue) }
+    val value = text.toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { input ->
+                    val normalized = input.replace(',', '.')
+                    if (normalized.all { it.isDigit() || it == '.' } && normalized.count { it == '.' } <= 1) {
+                        text = normalized
+                    }
+                },
+                label = { Text("Meter reading") },
+                suffix = if (unit.isNotBlank()) ({ Text(unit) }) else null,
+                textStyle = MaterialTheme.typography.headlineSmall.tabularNumbers,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth()
+            )
+        },
+        confirmButton = {
+            Button(onClick = { value?.let(onSave) }, enabled = value != null) { Text("Save") }
+        },
+        dismissButton = {
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        }
+    )
+}
 
 /**
- * Groups readings by month (YYYY-MM), calculates consumption per month
- * (max - min reading within the month), and renders a bar chart of the
- * last 6 months. Falls back to raw reading value when only 1 reading
- * exists in a month.
+ * Edit a meter's name, unit and starting value.
+ */
+@Composable
+private fun EditMeterDialog(
+    utility: UtilityEntity,
+    onDismiss: () -> Unit,
+    onSave: (UtilityEntity) -> Unit
+) {
+    var name by remember { mutableStateOf(utility.name.orEmpty()) }
+    var unit by remember { mutableStateOf(utility.unit) }
+    var initial by remember { mutableStateOf(formatMeterValue(utility.initialReading)) }
+    val initialValue = initial.toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit meter") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Meter name (optional)") },
+                    placeholder = { Text(utility.type.label) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = unit,
+                    onValueChange = { unit = it },
+                    label = { Text("Unit") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = initial,
+                    onValueChange = { initial = it.replace(',', '.') },
+                    label = { Text("Initial reading") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSave(
+                        utility.copy(
+                            name = name.trim().ifBlank { null },
+                            unit = unit.trim(),
+                            initialReading = initialValue ?: utility.initialReading
+                        )
+                    )
+                },
+                enabled = unit.isNotBlank() && initialValue != null
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+/**
+ * Usage per month for the last six months, drawn to scale from zero in the meter's colour.
+ * Usage between two readings counts toward the month of the later reading.
  */
 @Composable
 fun ReadingBarChart(
     readings: List<ReadingEntity>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    type: UtilityType? = null,
+    unit: String = ""
 ) {
-    val monthlyUsage = remember(readings) {
-        val cal = java.util.Calendar.getInstance()
+    val months = remember(readings) { monthlyUsage(readings).toList().takeLast(6) }
 
-        readings
-            .groupBy { reading ->
-                cal.timeInMillis = reading.timestamp
-                "${cal.get(java.util.Calendar.YEAR)}-${String.format(Locale.getDefault(), "%02d", cal.get(java.util.Calendar.MONTH) + 1)}"
-            }
-            .mapValues { (_, monthReadings) ->
-                val values = monthReadings.map { it.value }
-                // Consumption = max - min if 2+ readings, else the reading itself
-                if (values.size >= 2) values.max() - values.min() else values.first()
-            }
-            .toList()
-            .sortedBy { it.first }
-            .takeLast(6)
-    }
-
-    if (monthlyUsage.size < 2) {
+    if (months.size < 2) {
         Box(
             modifier = modifier
                 .height(180.dp)
@@ -174,112 +406,82 @@ fun ReadingBarChart(
             Text(
                 text = "Capture readings across multiple months to see trends",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(SnaptricSpacing.md)
             )
         }
         return
     }
 
-    val maxValue = monthlyUsage.maxOf { it.second }
-    val minValue = monthlyUsage.minOf { it.second }
-    val valueRange = if (maxValue == minValue) 1.0 else maxValue - minValue
-
-    val monthLabelFormat = remember { SimpleDateFormat("MMM", Locale.getDefault()) }
-    val cal = remember { java.util.Calendar.getInstance() }
+    val maxValue = months.maxOf { it.second }.takeIf { it > 0 } ?: 1.0
     val textMeasurer = rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val barColor = type?.accentColor ?: MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
+    val locale = Locale.getDefault()
 
-    val labelStyle = MaterialTheme.typography.labelSmall.copy(
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val outlineColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-
-    Box(
-        modifier = modifier
-            .height(180.dp)
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(SnaptricSpacing.md)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val chartPaddingLeft = 48.dp.toPx()
-            val chartPaddingBottom = 28.dp.toPx()
-            val chartPaddingTop = 8.dp.toPx()
-            val chartWidth = size.width - chartPaddingLeft
-            val chartHeight = size.height - chartPaddingBottom - chartPaddingTop
-
-            val barCount = monthlyUsage.size
-            val barSpacing = 10.dp.toPx()
-            val totalBarSpacing = barSpacing * (barCount - 1)
-            val barWidth = (chartWidth - totalBarSpacing) / barCount
-
-            // Draw Y-axis labels and grid lines
-            val ySteps = 3
-            for (i in 0..ySteps) {
-                val fraction = i / ySteps.toFloat()
-                val value = minValue + (valueRange * (1 - fraction))
-                val y = chartPaddingTop + (chartHeight * fraction)
-                val label = if (value == value.toInt().toDouble()) {
-                    value.toInt().toString()
-                } else {
-                    String.format(Locale.getDefault(), "%.1f", value)
+    SnaptricCard(modifier = modifier) {
+        Column(modifier = Modifier.padding(SnaptricSpacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                type?.let {
+                    UtilityIconBadge(type = it, size = 28.dp)
+                    Spacer(modifier = Modifier.width(SnaptricSpacing.sm))
                 }
-                val textLayoutResult = textMeasurer.measure(
-                    text = label,
-                    style = labelStyle
+                Text(
+                    text = if (unit.isBlank()) "Monthly usage" else "Monthly usage ($unit)",
+                    style = MaterialTheme.typography.titleSmall
                 )
-                drawText(
-                    textLayoutResult = textLayoutResult,
-                    topLeft = Offset(
-                        x = chartPaddingLeft - textLayoutResult.size.width.toFloat() - 4.dp.toPx(),
-                        y = y - textLayoutResult.size.height.toFloat() / 2
-                    )
-                )
-                if (i > 0) {
-                    drawLine(
-                        color = outlineColor,
-                        start = Offset(chartPaddingLeft, y),
-                        end = Offset(size.width, y),
-                        strokeWidth = 1.dp.toPx()
-                    )
-                }
             }
+            Spacer(modifier = Modifier.height(SnaptricSpacing.sm))
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+            ) {
+                val bottomLabel = 20.dp.toPx()
+                val topLabel = 16.dp.toPx()
+                val chartHeight = size.height - bottomLabel - topLabel
+                val slot = size.width / months.size
+                val barWidth = slot * 0.56f
 
-            // Draw bars and X-axis month labels
-            monthlyUsage.forEachIndexed { index, (monthKey, usage) ->
-                val barHeightFraction = if (maxValue == minValue) {
-                    0.5
-                } else {
-                    (usage - minValue) / valueRange
-                }
-                val barHeight = (barHeightFraction * chartHeight).toFloat()
-                val x = chartPaddingLeft + index * (barWidth + barSpacing)
-                val y = chartPaddingTop + chartHeight - barHeight
-
-                drawRect(
-                    color = primaryColor,
-                    topLeft = Offset(x, y),
-                    size = Size(barWidth, barHeight)
+                // Baseline at zero, so bar heights compare honestly.
+                drawLine(
+                    color = gridColor,
+                    start = Offset(0f, topLabel + chartHeight),
+                    end = Offset(size.width, topLabel + chartHeight),
+                    strokeWidth = 1.dp.toPx()
                 )
 
-                // Parse YYYY-MM to get a Date for formatting
-                val parts = monthKey.split("-")
-                cal.set(java.util.Calendar.YEAR, parts[0].toInt())
-                cal.set(java.util.Calendar.MONTH, parts[1].toInt() - 1)
-                cal.set(java.util.Calendar.DAY_OF_MONTH, 1)
-                val monthLabel = monthLabelFormat.format(cal.time)
-                val textLayoutResult = textMeasurer.measure(
-                    text = monthLabel,
-                    style = labelStyle
-                )
-                drawText(
-                    textLayoutResult = textLayoutResult,
-                    topLeft = Offset(
-                        x = x + barWidth / 2 - textLayoutResult.size.width.toFloat() / 2,
-                        y = size.height - chartPaddingBottom + 4.dp.toPx()
+                months.forEachIndexed { index, (month, usage) ->
+                    val barHeight = (usage / maxValue * chartHeight).toFloat()
+                    val x = index * slot + (slot - barWidth) / 2
+                    val y = topLabel + chartHeight - barHeight
+                    val isCurrent = index == months.lastIndex
+                    drawRoundRect(
+                        color = if (isCurrent) barColor else barColor.copy(alpha = 0.55f),
+                        topLeft = Offset(x, y),
+                        size = Size(barWidth, barHeight),
+                        cornerRadius = CornerRadius(6.dp.toPx())
                     )
-                )
+
+                    val valueLayout = textMeasurer.measure(formatAmount(usage), labelStyle)
+                    drawText(
+                        textLayoutResult = valueLayout,
+                        topLeft = Offset(
+                            x + barWidth / 2 - valueLayout.size.width / 2f,
+                            (y - valueLayout.size.height - 2.dp.toPx()).coerceAtLeast(0f)
+                        )
+                    )
+
+                    val monthLayout = textMeasurer.measure(month.month.getDisplayName(TextStyle.SHORT, locale), labelStyle)
+                    drawText(
+                        textLayoutResult = monthLayout,
+                        topLeft = Offset(
+                            x + barWidth / 2 - monthLayout.size.width / 2f,
+                            size.height - bottomLabel + 4.dp.toPx()
+                        )
+                    )
+                }
             }
         }
     }
@@ -289,24 +491,18 @@ fun ReadingBarChart(
 fun ReadingHistoryItem(
     reading: ReadingEntity,
     gap: Double?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unit: String = "",
+    onClick: (() -> Unit)? = null
 ) {
     val date = remember(reading.timestamp) {
         SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(reading.timestamp))
     }
 
-    val gapText = remember(gap) {
-        gap?.let {
-            val formatted = String.format(Locale.getDefault(), "%.2f", it)
-                .trimEnd('0')
-                .trimEnd('.')
-            "+$formatted"
-        }
-    }
-
     SnaptricCard(
         modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
+        onClick = onClick
     ) {
         Row(
             modifier = Modifier
@@ -323,16 +519,23 @@ fun ReadingHistoryItem(
                 )
                 Spacer(modifier = Modifier.height(SnaptricSpacing.xs))
                 Text(
-                    text = "${reading.value}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
+                    text = formatMeterValue(reading.value),
+                    style = MaterialTheme.typography.headlineSmall.tabularNumbers,
                     color = MaterialTheme.colorScheme.onSurface
                 )
+                if (reading.source == "Manual") {
+                    Text(
+                        text = "Typed in",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            if (gapText != null) {
+            if (gap != null) {
                 Text(
-                    text = gapText,
-                    style = MaterialTheme.typography.labelMedium,
+                    text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap)) +
+                        if (unit.isBlank()) "" else " $unit",
+                    style = MaterialTheme.typography.labelMedium.tabularNumbers,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
@@ -340,63 +543,24 @@ fun ReadingHistoryItem(
     }
 }
 
+private val previewReadings = (0 until 7).map { i ->
+    ReadingEntity(
+        id = i.toLong() + 1,
+        utilityId = 1,
+        value = 1325.0 - i * 40,
+        timestamp = System.currentTimeMillis() - i * 30L * 86_400_000,
+        source = if (i % 3 == 0) "Manual" else "MLKit"
+    )
+}
+
 @Preview
 @Composable
 private fun UtilityDetailContentPreview() {
     SnaptricTheme {
         UtilityDetailContent(
-            readings = listOf(
-                ReadingEntity(
-                    id = 1,
-                    utilityId = 1,
-                    value = 1234.0,
-                    timestamp = System.currentTimeMillis(),
-                    source = "MLKit"
-                ),
-                ReadingEntity(
-                    id = 2,
-                    utilityId = 1,
-                    value = 1250.0,
-                    timestamp = System.currentTimeMillis() - 86400000,
-                    source = "Manual"
-                ),
-                ReadingEntity(
-                    id = 3,
-                    utilityId = 1,
-                    value = 1265.0,
-                    timestamp = System.currentTimeMillis() - 172800000,
-                    source = "Gemma"
-                ),
-                ReadingEntity(
-                    id = 4,
-                    utilityId = 1,
-                    value = 1280.0,
-                    timestamp = System.currentTimeMillis() - 259200000,
-                    source = "MLKit"
-                ),
-                ReadingEntity(
-                    id = 5,
-                    utilityId = 1,
-                    value = 1295.0,
-                    timestamp = System.currentTimeMillis() - 345600000,
-                    source = "Manual"
-                ),
-                ReadingEntity(
-                    id = 6,
-                    utilityId = 1,
-                    value = 1310.0,
-                    timestamp = System.currentTimeMillis() - 432000000,
-                    source = "MLKit"
-                ),
-                ReadingEntity(
-                    id = 7,
-                    utilityId = 1,
-                    value = 1325.0,
-                    timestamp = System.currentTimeMillis() - 518400000,
-                    source = "Gemma"
-                )
-            ),
-            onBack = {}
+            readings = previewReadings,
+            onBack = {},
+            utility = UtilityEntity(id = 1, propertyId = 1, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0)
         )
     }
 }
@@ -407,25 +571,6 @@ private fun UtilityDetailContentEmptyPreview() {
     SnaptricTheme {
         UtilityDetailContent(
             readings = emptyList(),
-            onBack = {}
-        )
-    }
-}
-
-@Preview
-@Composable
-private fun UtilityDetailContentSingleReadingPreview() {
-    SnaptricTheme {
-        UtilityDetailContent(
-            readings = listOf(
-                ReadingEntity(
-                    id = 1,
-                    utilityId = 1,
-                    value = 1234.0,
-                    timestamp = System.currentTimeMillis(),
-                    source = "MLKit"
-                )
-            ),
             onBack = {}
         )
     }

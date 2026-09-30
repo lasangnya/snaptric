@@ -46,6 +46,19 @@ private fun ReadingEntity.localDate(zone: ZoneId): LocalDate =
     Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()
 
 /**
+ * Usage per calendar month for one meter's readings. Usage between two consecutive readings is
+ * counted in the month of the later reading; drops in value (a reset meter or a typo) are skipped.
+ */
+fun monthlyUsage(readings: List<ReadingEntity>, zone: ZoneId = ZoneId.systemDefault()): Map<YearMonth, Double> {
+    val usage = sortedMapOf<YearMonth, Double>()
+    readings.sortedBy { it.timestamp }.zipWithNext { older, newer ->
+        val delta = newer.value - older.value
+        if (delta >= 0) usage.merge(YearMonth.from(newer.localDate(zone)), delta, Double::plus)
+    }
+    return usage
+}
+
+/**
  * Builds a recap for every meter that has usage this month.
  *
  * Usage between two consecutive readings is counted in the month of the later reading. Drops in
@@ -65,17 +78,14 @@ fun buildMeterRecaps(
 
     return utilities.mapNotNull { utility ->
         val sorted = readingsByMeter[utility.id].orEmpty().sortedBy { it.timestamp }
-        val usageByMonth = mutableMapOf<YearMonth, Double>()
+        val usageByMonth = monthlyUsage(sorted, zone)
         // The time span this month's usage covers: from the reading before the first one this month
         // to the latest one. Used to work out a daily rate.
         var coveredFrom: Long? = null
         var coveredTo: ReadingEntity? = null
 
         sorted.zipWithNext { older, newer ->
-            val delta = newer.value - older.value
-            val readingMonth = YearMonth.from(newer.localDate(zone))
-            if (delta >= 0) usageByMonth.merge(readingMonth, delta, Double::plus)
-            if (readingMonth == month) {
+            if (YearMonth.from(newer.localDate(zone)) == month) {
                 if (coveredFrom == null) coveredFrom = older.timestamp
                 coveredTo = newer
             }

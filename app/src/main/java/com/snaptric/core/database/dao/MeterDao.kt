@@ -71,4 +71,22 @@ interface MeterDao {
      */
     @Query("DELETE FROM properties WHERE id = :propertyId")
     suspend fun deleteProperty(propertyId: Long)
+
+    /**
+     * Observes one meter, or null once it has been deleted.
+     */
+    @Query("SELECT * FROM utility WHERE id = :utilityId")
+    fun getUtility(utilityId: Long): Flow<UtilityEntity?>
+
+    /**
+     * Removes a meter; its readings are removed with it (CASCADE).
+     */
+    @Query("DELETE FROM utility WHERE id = :utilityId")
+    suspend fun deleteUtility(utilityId: Long)
+
+    /**
+     * Removes a single reading.
+     */
+    @Query("DELETE FROM readings WHERE id = :readingId")
+    suspend fun deleteReading(readingId: Long)
 }
