@@ -3,6 +3,8 @@ package com.snaptric.feature.home.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -81,7 +83,8 @@ class HomeScreenTest {
 
         composeTestRule.onNodeWithText("Latest reading").assertIsDisplayed()
         composeTestRule.onNodeWithText("1234.5").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Electricity · Home").assertIsDisplayed()
+        // Shown in the hero and again on the older reading in Recent Activity.
+        composeTestRule.onAllNodesWithText("Electricity · Home").onFirst().assertIsDisplayed()
         composeTestRule.onNodeWithText("+34.5 kWh", substring = true).assertIsDisplayed()
     }
 

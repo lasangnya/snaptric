@@ -52,6 +52,7 @@ import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.components.SnaptricBadge
 import com.snaptric.core.designsystem.components.SnaptricCard
+import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.components.SnaptricEmptyState
 import com.snaptric.core.designsystem.theme.ElectricityYellow
 import com.snaptric.core.designsystem.theme.GasOrange
@@ -189,7 +190,7 @@ fun UtilityCard(
         UtilityType.WATER -> WaterBlue
     }
 
-    val typeLabel = utility.type.name.replaceFirstChar { it.uppercase() }
+    val typeLabel = utility.type.label
 
     SnaptricCard(
         modifier = modifier,
@@ -221,7 +222,7 @@ fun UtilityCard(
             // Name and unit
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = utility.name ?: utility.type.name,
+                    text = utility.name ?: utility.type.label,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -303,7 +304,7 @@ fun AddUtilityDialog(
                             onClick = { selectedType = type },
                             selected = selectedType == type
                         ) {
-                            Text(type.name.replaceFirstChar { it.uppercase() })
+                            Text(type.label)
                         }
                     }
                 }
