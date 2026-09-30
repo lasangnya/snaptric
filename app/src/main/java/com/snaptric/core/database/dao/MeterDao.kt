@@ -1,9 +1,8 @@
 package com.snaptric.core.database.dao
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.database.entity.UtilityEntity
@@ -16,8 +15,11 @@ import kotlinx.coroutines.flow.Flow
 interface MeterDao {
     /**
      * Adds or updates a property (e.g., "Main Home", "Rental Apartment").
+     * Uses an upsert rather than REPLACE: REPLACE deletes the old row first, which
+     * would CASCADE-delete all of the property's utilities and readings.
+     * Returns the new row id, or -1 when an existing property was updated.
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertProperty(property : PropertyEntity) : Long
 
     /**
@@ -28,8 +30,10 @@ interface MeterDao {
 
     /**
      * Adds or updates a specific meter/utility (e.g., "Electricity Meter") to a property.
+     * Upsert for the same reason as [insertProperty]: keeps the meter's readings on update.
+     * Returns the new row id, or -1 when an existing utility was updated.
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertUtility(utility : UtilityEntity) : Long
 
     /**
@@ -41,7 +45,7 @@ interface MeterDao {
     /**
      * Persists a newly captured meter reading.
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertReading(reading: ReadingEntity)
 
     /**

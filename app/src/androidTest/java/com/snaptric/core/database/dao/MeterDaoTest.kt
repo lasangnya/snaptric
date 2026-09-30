@@ -178,4 +178,21 @@ class MeterDaoTest {
         assertTrue(dao.getAllProperties().first().isEmpty())
         assertTrue(dao.getUtilitiesForProperty(propId).first().isEmpty())
     }
+
+    @Test
+    fun updatingProperty_keepsItsUtilitiesAndReadings() = runBlocking {
+        dao.insertProperty(PropertyEntity(name = "Home", address = null))
+        val property = dao.getAllProperties().first().first()
+        dao.insertUtility(UtilityEntity(propertyId = property.id, type = UtilityType.GAS, unit = "m3", initialReading = 0.0))
+        val utility = dao.getUtilitiesForProperty(property.id).first().first()
+        dao.insertReading(ReadingEntity(utilityId = utility.id, value = 42.0, timestamp = 1000L, source = "Manual"))
+
+        // Re-saving existing rows must update them in place, not delete-and-reinsert (which would cascade).
+        dao.insertProperty(property.copy(name = "Main Home"))
+        dao.insertUtility(utility.copy(name = "Main Meter"))
+
+        assertEquals("Main Home", dao.getAllProperties().first().single().name)
+        assertEquals("Main Meter", dao.getUtilitiesForProperty(property.id).first().single().name)
+        assertEquals(1, dao.getReadingsForUtility(utility.id).first().size)
+    }
 }
