@@ -1,6 +1,32 @@
 package com.snaptric.feature.capture.ui
 
 import android.Manifest
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
+import com.snaptric.core.designsystem.components.accentColor
+import com.snaptric.core.designsystem.components.formatMeterValue
+import com.snaptric.core.designsystem.components.icon
+import com.snaptric.core.designsystem.components.label
+import com.snaptric.core.designsystem.theme.EcoGreen
+import com.snaptric.core.designsystem.theme.tabularNumbers
+import kotlinx.coroutines.delay
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
@@ -34,9 +60,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -44,10 +68,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -102,6 +124,16 @@ fun CaptureScreen(
     val utilities by viewModel.utilities.collectAsState()
 
     val capturedBitmap by viewModel.capturedBitmap.collectAsState()
+    val selectedPropertyId by viewModel.selectedPropertyId.collectAsState()
+
+    // Set once a reading is saved; shows the success animation, then closes the screen.
+    var savedReading by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(savedReading) {
+        if (savedReading != null) {
+            delay(1200)
+            onClose()
+        }
+    }
 
 
     // Verify camera permission is granted before showing the preview.
@@ -218,21 +250,25 @@ fun CaptureScreen(
             }
         }
         
-        // Display the confirmation dialog once the AI has detected a value.
+        // Display the confirmation sheet once the AI has detected a value.
         capturedValue?.let { value ->
-            ConfirmReadingDialog(
+            ConfirmReadingSheet(
                 detectedValue = value,
                 properties = properties,
+                selectedPropertyId = selectedPropertyId,
                 utilities = utilities,
                 onPropertySelected = { viewModel.onPropertySelected(it) },
                 onDismiss = { viewModel.clearCapturedValue() },
-                onSave = {reading, utilId ->
+                onSave = { reading, utilId ->
                     viewModel.saveReading(reading, utilId)
-                    onClose() // Go back home after successful save.
+                    savedReading = utilities.firstOrNull { it.id == utilId }
+                        ?.let { "${formatMeterValue(reading)} ${it.unit}" } ?: formatMeterValue(reading)
                 },
                 capturedBitmap = capturedBitmap
             )
         }
+
+        savedReading?.let { SaveSuccessOverlay(savedValue = it) }
     }
 }
 
@@ -349,101 +385,218 @@ private fun cropToCenterStrip(bitmap: Bitmap) : Bitmap{
 }
 
 /**
- * A dialog for the user to review the AI-detected meter reading,
+ * A bottom sheet for the user to review the AI-detected meter reading,
  * edit it if necessary, and select which property/meter it belongs to.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfirmReadingDialog(
-    detectedValue : String,
+fun ConfirmReadingSheet(
+    detectedValue: String,
     properties: List<PropertyEntity>,
+    selectedPropertyId: Long?,
     utilities: List<UtilityEntity>,
-    onPropertySelected : (Long) -> Unit,
+    onPropertySelected: (Long) -> Unit,
     onDismiss: () -> Unit,
-    onSave:(Double, Long) -> Unit,
+    onSave: (Double, Long) -> Unit,
     capturedBitmap: Bitmap?
-){
+) {
     var editedValue by remember { mutableStateOf(detectedValue) }
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
+    val selectedUtility = utilities.firstOrNull { it.id == selectedUtilityId }
+    val parsedValue = editedValue.toDoubleOrNull()
 
     // Auto-select the first available utility (meter) for the selected property.
     LaunchedEffect(utilities) {
-        if(selectedUtilityId == null || !utilities.any{ it.id == selectedUtilityId }) {
+        if (selectedUtilityId == null || !utilities.any { it.id == selectedUtilityId }) {
             selectedUtilityId = utilities.firstOrNull()?.id
         }
     }
-    AlertDialog(
+
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text("Confirm Reading") },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val valDouble = editedValue.toDoubleOrNull() ?: 0.0
-                    selectedUtilityId?.let { onSave(valDouble, it) }
-                },
-                enabled = editedValue.isNotBlank() && selectedUtilityId != null,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = SnaptricSpacing.lg)
+                .padding(bottom = SnaptricSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
+        ) {
+            Column {
+                Text("Confirm reading", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Check the number, then choose the meter it belongs to.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            ) { Text("Save") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm),
-                modifier = Modifier.padding(SnaptricSpacing.sm)
-            ) {
-                // Show the cropped image that was used for detection.
-                capturedBitmap?.let { bitmap ->
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = "Captured Image",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(80.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.DarkGray)
-                    )
-                }
-                
-                // Allow manual correction of the reading.
-                OutlinedTextField(
-                    value = editedValue,
-                    onValueChange = { editedValue = it },
-                    label = { Text("Meter Reading") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        focusedLabelColor = MaterialTheme.colorScheme.primary
-                    )
-                )
+            }
 
-                Text("Select Property", style = MaterialTheme.typography.labelSmall)
-                // Quick property selection.
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
-                    items(properties) { prop ->
-                        FilterChip(
-                            selected = false, // TODO: Add logic to track selected property highlighting
-                            onClick = { onPropertySelected(prop.id) },
-                            label = { Text(prop.name) }
-                        )
+            // Show the cropped image that was used for detection.
+            capturedBitmap?.let { bitmap ->
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Captured meter",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Charcoal10)
+                )
+            }
+
+            // Allow manual correction of the reading, with a numeric keypad.
+            OutlinedTextField(
+                value = editedValue,
+                onValueChange = { input ->
+                    val normalized = input.replace(',', '.')
+                    if (normalized.all { it.isDigit() || it == '.' } && normalized.count { it == '.' } <= 1) {
+                        editedValue = normalized
                     }
-                }
+                },
+                label = { Text("Meter reading") },
+                suffix = selectedUtility?.let { { Text(it.unit) } },
+                textStyle = MaterialTheme.typography.headlineSmall.tabularNumbers,
+                singleLine = true,
+                isError = editedValue.isNotEmpty() && parsedValue == null,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
 
-                Text("Select Meter", style = MaterialTheme.typography.labelSmall)
-                // Quick utility/meter selection.
+            SheetLabel("Property")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                items(properties, key = { it.id }) { prop ->
+                    FilterChip(
+                        selected = prop.id == selectedPropertyId,
+                        onClick = { onPropertySelected(prop.id) },
+                        label = { Text(prop.name) },
+                        colors = selectedChipColors()
+                    )
+                }
+            }
+
+            SheetLabel("Meter")
+            if (utilities.isEmpty()) {
+                Text(
+                    "This property has no meters yet. Add one under Properties first.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
-                    items(utilities) { util ->
+                    items(utilities, key = { it.id }) { util ->
                         FilterChip(
                             selected = selectedUtilityId == util.id,
                             onClick = { selectedUtilityId = util.id },
-                            label = { Text("${util.name ?: util.type} (${util.unit})") }
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = util.type.icon,
+                                    contentDescription = null,
+                                    tint = util.type.accentColor,
+                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                )
+                            },
+                            label = { Text("${util.name ?: util.type.label} (${util.unit})") },
+                            colors = selectedChipColors()
                         )
                     }
                 }
             }
-        }
 
+            Spacer(modifier = Modifier.height(SnaptricSpacing.xs))
+
+            // Actions sit at the bottom, in easy thumb reach.
+            Row(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp)
+                ) { Text("Retake") }
+                Button(
+                    onClick = {
+                        val utilityId = selectedUtilityId
+                        if (parsedValue != null && utilityId != null) onSave(parsedValue, utilityId)
+                    },
+                    enabled = parsedValue != null && selectedUtilityId != null,
+                    modifier = Modifier
+                        .weight(2f)
+                        .height(56.dp)
+                ) { Text("Save reading") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun selectedChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
+
+@Composable
+private fun SheetLabel(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+}
+
+/**
+ * A short celebratory confirmation shown after a reading is saved.
+ */
+@Composable
+private fun SaveSuccessOverlay(savedValue: String) {
+    val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Charcoal10.copy(alpha = 0.6f)),
+        contentAlignment = Alignment.Center
+    ) {
+        AnimatedVisibility(
+            visibleState = visibleState,
+            enter = fadeIn(tween(200)) + scaleIn(
+                initialScale = 0.6f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
+            )
+        ) {
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = SnaptricSpacing.xl, vertical = SnaptricSpacing.lg),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(EcoGreen.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = EcoGreen,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(SnaptricSpacing.md))
+                    Text("Reading saved", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = savedValue,
+                        style = MaterialTheme.typography.bodyLarge.tabularNumbers,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
 }
