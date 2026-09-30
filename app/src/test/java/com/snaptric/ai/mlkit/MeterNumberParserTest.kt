@@ -52,4 +52,40 @@ class MeterNumberParserTest {
     fun `no digits returns null`() {
         assertNull(pickMeterNumber(listOf(OcrLine("kWh", height = 40))))
     }
+
+    @Test
+    fun `labelled serial number is read separately from the counter`() {
+        val scan = scanMeter(
+            listOf(
+                OcrLine("S/N 20481733", height = 18),
+                OcrLine("01262", height = 64)
+            )
+        )
+        assertEquals("01262", scan.value)
+        assertEquals("20481733", scan.serialNumber)
+    }
+
+    @Test
+    fun `short unlabelled numbers are not taken as a serial`() {
+        assertNull(scanMeter(listOf(OcrLine("230V 50Hz", height = 18), OcrLine("01262", height = 64))).serialNumber)
+    }
+
+    @Test
+    fun `low-confidence digits are flagged at their position in the value`() {
+        // "0126 2,4": the '6' (index 3) and the decimal '4' are uncertain; the space is dropped.
+        val line = OcrLine(
+            text = "0126 2,4",
+            height = 60,
+            charConfidences = listOf(0.95f, 0.9f, 0.9f, 0.4f, 1f, 0.9f, 0.9f, 0.3f)
+        )
+        val scan = scanMeter(listOf(line))
+        assertEquals("01262.4", scan.value)
+        assertEquals(setOf(3, 6), scan.uncertainDigits)
+    }
+
+    @Test
+    fun `all-zero confidences are treated as unknown`() {
+        val line = OcrLine("01262", height = 60, charConfidences = List(5) { 0f })
+        assertEquals(emptySet<Int>(), scanMeter(listOf(line)).uncertainDigits)
+    }
 }

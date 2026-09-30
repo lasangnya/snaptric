@@ -13,6 +13,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.AssistChip
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.domain.insights.MeterMatch
 import com.snaptric.core.domain.insights.ReadingCheck
 import com.snaptric.core.domain.insights.checkReading
 import com.snaptric.core.domain.insights.formatAmount
@@ -143,6 +144,8 @@ fun CaptureScreen(
     val capturedBitmap by viewModel.capturedBitmap.collectAsState()
     val selectedPropertyId by viewModel.selectedPropertyId.collectAsState()
     val selectedUtilityHistory by viewModel.selectedUtilityHistory.collectAsState()
+    val uncertainDigits by viewModel.uncertainDigits.collectAsState()
+    val meterMatch by viewModel.meterMatch.collectAsState()
 
     // Set once a reading is saved; shows the success animation, then closes the screen.
     var savedReading by remember { mutableStateOf<String?>(null) }
@@ -274,7 +277,7 @@ fun CaptureScreen(
                                     val croppedBitmap = cropToCenterStrip(rotatedBitmap)
 
                                     // 5. Send the cropped image to the ViewModel for AI analysis.
-                                    viewModel.analyzeAndShowDialog(croppedBitmap)
+                                    viewModel.analyzeAndShowDialog(croppedBitmap, fullFrame = rotatedBitmap)
                                     image.close()
                                 }
                                 override fun onError(e: ImageCaptureException) {}
@@ -296,6 +299,8 @@ fun CaptureScreen(
                 selectedPropertyId = selectedPropertyId,
                 utilities = utilities,
                 history = selectedUtilityHistory,
+                uncertainDigits = uncertainDigits,
+                meterMatch = meterMatch,
                 onPropertySelected = { viewModel.onPropertySelected(it) },
                 onUtilitySelected = { viewModel.onUtilitySelected(it) },
                 onDismiss = { viewModel.clearCapturedValue() },
@@ -482,7 +487,9 @@ fun ConfirmReadingSheet(
     onUtilitySelected: (Long?) -> Unit,
     onDismiss: () -> Unit,
     onSave: (Double, Long) -> Unit,
-    capturedBitmap: Bitmap?
+    capturedBitmap: Bitmap?,
+    uncertainDigits: Set<Int> = emptySet(),
+    meterMatch: MeterMatch? = null
 ) {
     var editedValue by remember { mutableStateOf(detectedValue) }
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
@@ -496,9 +503,12 @@ fun ConfirmReadingSheet(
     LaunchedEffect(selectedUtilityId) { onUtilitySelected(selectedUtilityId) }
 
     // Auto-select the first available utility (meter) for the selected property.
-    LaunchedEffect(utilities) {
-        if (selectedUtilityId == null || !utilities.any { it.id == selectedUtilityId }) {
-            selectedUtilityId = utilities.firstOrNull()?.id
+    LaunchedEffect(utilities, meterMatch) {
+        val matched = meterMatch?.utility?.id?.takeIf { id -> utilities.any { it.id == id } }
+        if (matched != null && selectedUtilityId == null) {
+            selectedUtilityId = matched
+        } else if (selectedUtilityId == null || !utilities.any { it.id == selectedUtilityId }) {
+            selectedUtilityId = matched ?: utilities.firstOrNull()?.id
         }
     }
 
@@ -557,6 +567,11 @@ fun ConfirmReadingSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Point out digits OCR wasn't sure about, until the user edits the value.
+            if (uncertainDigits.isNotEmpty() && editedValue == detectedValue) {
+                UncertainDigits(value = detectedValue, uncertain = uncertainDigits)
+            }
+
             SheetLabel("Property")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
                 items(properties, key = { it.id }) { prop ->
@@ -570,6 +585,18 @@ fun ConfirmReadingSheet(
             }
 
             SheetLabel("Meter")
+            meterMatch?.takeIf { it.utility.id == selectedUtilityId }?.let { match ->
+                Text(
+                    text = when (match.reason) {
+                        MeterMatch.Reason.SERIAL_NUMBER ->
+                            "Matched by serial number …${match.utility.serialNumber.orEmpty().takeLast(4)}"
+                        MeterMatch.Reason.CLOSEST_READING ->
+                            "Chosen because its last reading is just below this one"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             if (utilities.isEmpty()) {
                 Text(
                     "This property has no meters yet. Add one under Properties first.",
@@ -676,6 +703,36 @@ private fun ReadingWarning(check: ReadingCheck, unit: String, onUseSuggestion: (
                 ReadingCheck.Plausible -> Unit
             }
         }
+    }
+}
+
+/**
+ * Shows the detected value digit by digit, with the ones OCR was unsure about highlighted.
+ */
+@Composable
+private fun UncertainDigits(value: String, uncertain: Set<Int>) {
+    Column(verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            value.forEachIndexed { index, char ->
+                val flagged = index in uncertain
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (flagged) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    border = if (flagged) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                ) {
+                    Text(
+                        text = char.toString(),
+                        style = MaterialTheme.typography.titleMedium.tabularNumbers,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+        Text(
+            text = if (uncertain.size == 1) "Check the highlighted digit." else "Check the highlighted digits.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

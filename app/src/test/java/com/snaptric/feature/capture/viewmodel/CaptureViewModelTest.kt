@@ -31,6 +31,8 @@ class CaptureViewModelTest {
     private val meterDao: MeterDao = mockk(relaxed = true)
 
     private fun createViewModel(): CaptureViewModel {
+        every { meterDao.getAllUtilities() } returns flowOf(emptyList())
+        every { meterDao.getAllReadings() } returns flowOf(emptyList())
         return CaptureViewModel(meterReadingAnalyzer, meterDao)
     }
 
@@ -83,7 +85,7 @@ class CaptureViewModelTest {
     fun `analyzeAndShowDialog sets isAnalyzing true then false and sets capturedValue`() = runTest(mainDispatcherRule.testDispatcher) {
         val bitmap = mockk<Bitmap>(relaxed = true)
         val reading = Reading(value = "12345", timestamp = 0L, source = "MLKit")
-        coEvery { meterReadingAnalyzer.analyze(bitmap) } returns reading
+        coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns reading
         every { meterDao.getAllProperties() } returns flowOf(emptyList())
 
         val viewModel = createViewModel()
@@ -109,7 +111,7 @@ class CaptureViewModelTest {
     fun `saveReading calls insertReading on DAO and clears capturedValue`() = runTest(mainDispatcherRule.testDispatcher) {
         val bitmap = mockk<Bitmap>(relaxed = true)
         val reading = Reading(value = "12345", timestamp = 0L, source = "MLKit")
-        coEvery { meterReadingAnalyzer.analyze(bitmap) } returns reading
+        coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns reading
         every { meterDao.getAllProperties() } returns flowOf(emptyList())
 
         val viewModel = createViewModel()
@@ -132,7 +134,7 @@ class CaptureViewModelTest {
     fun `clearCapturedValue sets capturedValue to null`() = runTest(mainDispatcherRule.testDispatcher) {
         val bitmap = mockk<Bitmap>(relaxed = true)
         val reading = Reading(value = "12345", timestamp = 0L, source = "MLKit")
-        coEvery { meterReadingAnalyzer.analyze(bitmap) } returns reading
+        coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns reading
         every { meterDao.getAllProperties() } returns flowOf(emptyList())
 
         val viewModel = createViewModel()
@@ -149,5 +151,32 @@ class CaptureViewModelTest {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `a scanned serial selects its meter and is remembered on a new meter`() = runTest(mainDispatcherRule.testDispatcher) {
+        val known = UtilityEntity(id = 1L, propertyId = 2L, type = UtilityType.GAS, unit = "m³", initialReading = 0.0, serialNumber = "20481733")
+        val unnamed = UtilityEntity(id = 3L, propertyId = 2L, type = UtilityType.WATER, unit = "m³", initialReading = 0.0)
+        val viewModel = createViewModel()
+        every { meterDao.getAllUtilities() } returns flowOf(listOf(known, unnamed))
+        val bitmap = mockk<Bitmap>(relaxed = true)
+
+        coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns
+            Reading(value = "00845", timestamp = 0L, source = "MLKit", serialNumber = "20481733")
+        viewModel.analyzeAndShowDialog(bitmap)
+        advanceUntilIdle()
+
+        assertEquals(known, viewModel.meterMatch.value?.utility)
+        assertEquals(2L, viewModel.selectedPropertyId.value)
+
+        // A different serial saved against the water meter is stored on it for next time.
+        coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns
+            Reading(value = "00120", timestamp = 0L, source = "MLKit", serialNumber = "55501234")
+        viewModel.analyzeAndShowDialog(bitmap)
+        advanceUntilIdle()
+        viewModel.saveReading(120.0, utilityId = 3L)
+        advanceUntilIdle()
+
+        coVerify { meterDao.insertUtility(unnamed.copy(serialNumber = "55501234")) }
     }
 }

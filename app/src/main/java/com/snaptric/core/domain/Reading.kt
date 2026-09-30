@@ -7,9 +7,13 @@ package com.snaptric.core.domain
  * @property value The detected value as a string (may contain non-numeric characters before cleaning).
  * @property timestamp The time the reading was processed.
  * @property source The engine used for detection (defaulting to "GEMMA").
+ * @property uncertainDigits Positions in [value] the engine was unsure about.
+ * @property serialNumber The meter's serial number, if it was readable in the photo.
  */
 data class Reading(
     val value: String?,
     val timestamp: Long,
-    val source: String = "GEMMA"
+    val source: String = "GEMMA",
+    val uncertainDigits: Set<Int> = emptySet(),
+    val serialNumber: String? = null
 )
