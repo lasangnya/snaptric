@@ -2,6 +2,8 @@ package com.snaptric.feature.home.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -23,8 +25,6 @@ class HomeScreenTest {
         composeTestRule.setContent {
             SnaptricTheme {
                 HomeContent(
-                    isAnalyzing = false,
-                    latestRead = null,
                     properties = emptyList(),
                     readings = emptyList()
                 )
@@ -40,8 +40,6 @@ class HomeScreenTest {
         composeTestRule.setContent {
             SnaptricTheme {
                 HomeContent(
-                    isAnalyzing = false,
-                    latestRead = null,
                     properties = emptyList(),
                     readings = emptyList()
                 )
@@ -66,8 +64,6 @@ class HomeScreenTest {
         composeTestRule.setContent {
             SnaptricTheme {
                 HomeContent(
-                    isAnalyzing = false,
-                    latestRead = null,
                     properties = properties,
                     readings = readings
                 )
@@ -81,18 +77,22 @@ class HomeScreenTest {
     }
 
     @Test
-    fun analyzingState_showsAnalyzingText() {
+    fun latestStatCard_showsMostRecentReadingValue() {
+        val readings = listOf(
+            ReadingEntity(id = 1, utilityId = 1, value = 1200.0, timestamp = 1_000L, source = "Manual"),
+            ReadingEntity(id = 2, utilityId = 1, value = 1234.5, timestamp = 2_000L, source = "MLKit")
+        )
+
         composeTestRule.setContent {
             SnaptricTheme {
                 HomeContent(
-                    isAnalyzing = true,
-                    latestRead = null,
                     properties = emptyList(),
-                    readings = emptyList()
+                    readings = readings
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("AI is analyzing your photo...").assertIsDisplayed()
+        // Shown in both the "Latest" stat card and the Recent Activity list.
+        composeTestRule.onAllNodesWithText("1234.5").assertCountEquals(2)
     }
 }
