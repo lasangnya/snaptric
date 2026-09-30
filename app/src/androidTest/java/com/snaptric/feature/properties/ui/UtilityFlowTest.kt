@@ -95,7 +95,7 @@ class UtilityFlowTest {
         composeTestRule.onNodeWithText("Save Meter").performClick()
 
         assertEquals(UtilityType.ELECTRICITY, savedType)
-        assertEquals("m\u00B3", savedUnit) // m³
+        assertEquals("kWh", savedUnit)
         assertEquals(250.0, savedReading)
     }
 

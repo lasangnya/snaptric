@@ -262,8 +262,8 @@ fun AddUtilityDialog(
     var initialReading by remember { mutableStateOf("") }
 
     val unitOptions = when (selectedType) {
-        UtilityType.GAS -> listOf("kWh", "Wh")
-        UtilityType.ELECTRICITY -> listOf("m³", "ft³", "kWh", "therms")
+        UtilityType.GAS -> listOf("m³", "ft³", "kWh", "therms")
+        UtilityType.ELECTRICITY -> listOf("kWh", "Wh")
         UtilityType.WATER -> listOf("m³", "Liters", "Gallons")
     }
     var selectedUnit by remember { mutableStateOf(unitOptions.first()) }
