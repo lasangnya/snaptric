@@ -46,6 +46,7 @@ turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
 #cameraX
 androidx-camerax-camera2 = { group = 'androidx.camera', name = 'camera-camera2', version.ref = 'camerax'}
@@ -69,4 +70,5 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version = "2.3.8" }
+room = { id = "androidx.room", version.ref = "room" }
 

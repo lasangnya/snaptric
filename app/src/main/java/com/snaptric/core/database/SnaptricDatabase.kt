@@ -17,7 +17,7 @@ import com.snaptric.core.database.dao.MeterDao
         com.snaptric.core.database.entity.ReadingEntity::class
     ],
     version = 1,
-    exportSchema = false
+    exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
 abstract class SnaptricDatabase : RoomDatabase() {

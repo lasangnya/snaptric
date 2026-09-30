@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
 }
 
 android {
@@ -41,6 +42,11 @@ android {
     }
 }
 
+// Exported schemas are checked in so every database version can be migration-tested.
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
@@ -66,6 +72,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.turbine)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
