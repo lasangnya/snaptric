@@ -111,7 +111,9 @@ fun PropertiesContent(
                 SnaptricEmptyState(
                     icon = Icons.Default.Home,
                     title = "No Properties Yet",
-                    description = "Add your first property to start tracking utility readings."
+                    description = "Add your first property to start tracking utility readings.",
+                    actionLabel = "Add a property",
+                    onAction = { showDialog = true }
                 )
             }
         } else {

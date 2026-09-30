@@ -1,12 +1,9 @@
 package com.snaptric
 
-import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -18,14 +15,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -55,26 +51,11 @@ class MainActivity : ComponentActivity() {
 /**
  * AppRoot manages the high-level state of the application, including:
  * - Navigation controller setup.
- * - Initial runtime permission requests.
  * - Routing logic for the main content areas.
  */
 @Composable
 fun AppRoot() {
     val navController = rememberNavController()
-
-    // Launcher for requesting multiple permissions (e.g., Camera) at once.
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
-
-    // Request necessary permissions as soon as the app starts.
-    LaunchedEffect(Unit) {
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.CAMERA
-            )
-        )
-    }
 
     // Determine the current route to update UI elements like the bottom bar or FAB visibility.
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
@@ -110,7 +91,7 @@ fun AppRootContent(
         bottomBar = {
             // Hide the bottom bar when in the 'capture' screen to maximize camera view.
             if (currentRoute != "capture"){
-                BottomAppBar {
+                NavigationBar {
                     bottomBarDestinations.forEach { destination ->
                         NavigationBarItem(
                             selected = currentRoute == destination.route,

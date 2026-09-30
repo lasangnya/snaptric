@@ -89,4 +89,10 @@ interface MeterDao {
      */
     @Query("DELETE FROM readings WHERE id = :readingId")
     suspend fun deleteReading(readingId: Long)
+
+    /**
+     * Observes one property, or null once it has been deleted.
+     */
+    @Query("SELECT * FROM properties WHERE id = :propertyId")
+    fun getProperty(propertyId: Long): Flow<PropertyEntity?>
 }

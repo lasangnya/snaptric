@@ -52,13 +52,12 @@ import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.components.SnaptricBadge
 import com.snaptric.core.designsystem.components.SnaptricCard
+import com.snaptric.core.designsystem.components.UtilityIconBadge
+import com.snaptric.core.designsystem.components.accentColor
 import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.components.SnaptricEmptyState
-import com.snaptric.core.designsystem.theme.ElectricityYellow
-import com.snaptric.core.designsystem.theme.GasOrange
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
-import com.snaptric.core.designsystem.theme.WaterBlue
 import com.snaptric.feature.properties.viewmodel.PropertyDetailViewModel
 
 /**
@@ -72,8 +71,10 @@ fun PropertyDetailScreen(
     onUtilityClick: (Long) -> Unit
 ) {
     val utilities by viewModel.utilities.collectAsState()
+    val property by viewModel.property.collectAsState()
 
     PropertyDetailContent(
+        propertyName = property?.name,
         utilities = utilities,
         onBack = onBack,
         onAddUtility = { type, unit, initialReading, name ->
@@ -93,14 +94,15 @@ fun PropertyDetailContent(
     utilities: List<UtilityEntity>,
     onBack: () -> Unit,
     onAddUtility: (UtilityType, String, Double, String?) -> Unit,
-    onUtilityClick: (Long) -> Unit
+    onUtilityClick: (Long) -> Unit,
+    propertyName: String? = null
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Meter Room") },
+                title = { Text(propertyName ?: "Meters") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -132,12 +134,10 @@ fun PropertyDetailContent(
                     icon = Icons.Default.Bolt,
                     title = "No Meters Added",
                     description = "Add your first meter to start capturing readings.",
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    actionLabel = "Add your first meter",
+                    onAction = { showAddDialog = true }
                 )
-                Spacer(modifier = Modifier.height(SnaptricSpacing.md))
-                TextButton(onClick = { showAddDialog = true }) {
-                    Text("Add your first meter")
-                }
             }
         } else {
             LazyColumn(
@@ -184,11 +184,7 @@ fun UtilityCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val color = when (utility.type) {
-        UtilityType.GAS -> GasOrange
-        UtilityType.ELECTRICITY -> ElectricityYellow
-        UtilityType.WATER -> WaterBlue
-    }
+    val color = utility.type.accentColor
 
     val typeLabel = utility.type.label
 
@@ -203,21 +199,7 @@ fun UtilityCard(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
         ) {
-            // Colored indicator with soft background
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.10f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                )
-            }
+            UtilityIconBadge(type = utility.type)
 
             // Name and unit
             Column(modifier = Modifier.weight(1f)) {
@@ -238,7 +220,7 @@ fun UtilityCard(
             SnaptricBadge(
                 text = typeLabel,
                 containerColor = color.copy(alpha = 0.15f),
-                contentColor = color
+                contentColor = MaterialTheme.colorScheme.onSurface
             )
 
             // Chevron

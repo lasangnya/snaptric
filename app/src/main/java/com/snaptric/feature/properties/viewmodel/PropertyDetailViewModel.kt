@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
+import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +26,12 @@ class PropertyDetailViewModel @Inject constructor(
     
     // The current property ID being viewed.
     private val propertyId : Long = checkNotNull(savedStateHandle["propertyId"])
+
+    /**
+     * The property being viewed, for its name in the title.
+     */
+    val property: StateFlow<PropertyEntity?> = meterDao.getProperty(propertyId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     /**
      * Observable flow of all utility meters for this specific property.

@@ -44,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -71,7 +72,6 @@ import com.snaptric.feature.properties.viewmodel.UtilityViewModel
 import java.text.SimpleDateFormat
 import java.time.format.TextStyle
 import java.util.Date
-import java.util.Locale
 
 /**
  * Entry point for the Utility detail screen.
@@ -418,7 +418,7 @@ fun ReadingBarChart(
     val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
     val barColor = type?.accentColor ?: MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-    val locale = Locale.getDefault()
+    val locale = LocalConfiguration.current.locales[0]
 
     SnaptricCard(modifier = modifier) {
         Column(modifier = Modifier.padding(SnaptricSpacing.md)) {
@@ -495,8 +495,9 @@ fun ReadingHistoryItem(
     unit: String = "",
     onClick: (() -> Unit)? = null
 ) {
-    val date = remember(reading.timestamp) {
-        SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(reading.timestamp))
+    val locale = LocalConfiguration.current.locales[0]
+    val date = remember(reading.timestamp, locale) {
+        SimpleDateFormat("dd MMM yyyy, HH:mm", locale).format(Date(reading.timestamp))
     }
 
     SnaptricCard(

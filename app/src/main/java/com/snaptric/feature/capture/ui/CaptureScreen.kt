@@ -1,6 +1,15 @@
 package com.snaptric.feature.capture.ui
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.AssistChip
 import com.snaptric.core.database.entity.ReadingEntity
@@ -145,15 +154,35 @@ fun CaptureScreen(
     }
 
 
-    // Verify camera permission is granted before showing the preview.
-    val hasCameraPermission = remember {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
+    // Camera permission is asked for here, when it's needed, and re-checked whenever the screen
+    // resumes so granting it in system Settings takes effect without leaving the screen.
+    fun cameraGranted() = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
+
+    var hasCameraPermission by remember { mutableStateOf(cameraGranted()) }
+    var permissionAsked by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasCameraPermission = granted
+        permissionAsked = true
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { hasCameraPermission = cameraGranted() }
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
     if (!hasCameraPermission) {
-        Text(text = "Camera permission is required to capture photos.")
+        CameraPermissionNeeded(
+            // After a denial Android may stop showing the prompt, so offer system Settings instead.
+            showSettings = permissionAsked,
+            onAllow = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+            onOpenSettings = {
+                context.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                )
+            },
+            onClose = onClose
+        )
         return
     }
 
@@ -280,6 +309,48 @@ fun CaptureScreen(
         }
 
         savedReading?.let { SaveSuccessOverlay(savedValue = it) }
+    }
+}
+
+/**
+ * Explains why the camera is needed and how to allow it.
+ */
+@Composable
+private fun CameraPermissionNeeded(
+    showSettings: Boolean,
+    onAllow: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(SnaptricSpacing.lg),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp)
+            )
+            Text("Allow camera access", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Snaptric reads your meter from a photo. Photos are processed on this phone and never uploaded.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Button(onClick = if (showSettings) onOpenSettings else onAllow) {
+                Text(if (showSettings) "Open settings" else "Allow camera")
+            }
+            TextButton(onClick = onClose) { Text("Not now") }
+        }
     }
 }
 
