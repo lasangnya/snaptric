@@ -12,6 +12,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
@@ -66,7 +67,11 @@ fun AppRoot() {
         // The AppNavHost defines all the screens and their transitions.
         AppNavHost(
             navController = navController,
-            modifier = Modifier.padding(innerPadding)
+            // Consume the insets the root Scaffold already applied, so screens with their own
+            // top bar don't add the status bar height a second time.
+            modifier = Modifier
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding)
         )
     }
 }
@@ -111,7 +116,8 @@ fun AppRootContent(
         floatingActionButton = {
             // Only show the camera FAB if we are not already in the capture screen.
             AnimatedVisibility(
-                visible = currentRoute != "capture",
+                // Hidden on the camera itself and on the meter screen, which has its own "Type a reading" button.
+                visible = currentRoute != "capture" && currentRoute?.startsWith("utility_detail") != true,
                 enter = scaleIn(
                     animationSpec = tween(200)
                 ) + fadeIn(
