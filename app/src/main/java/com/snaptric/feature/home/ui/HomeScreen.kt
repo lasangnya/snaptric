@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -53,6 +55,7 @@ import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.core.designsystem.theme.tabularNumbers
+import com.snaptric.core.domain.insights.Insight
 import com.snaptric.feature.home.viewmodel.HomeReadingItem
 import com.snaptric.feature.home.viewmodel.HomeViewModel
 import com.snaptric.feature.home.viewmodel.buildHomeReadingItems
@@ -72,10 +75,12 @@ fun HomeScreen(
 ) {
     val properties by viewModel.properties.collectAsState()
     val readingItems by viewModel.readingItems.collectAsState()
+    val insight by viewModel.insight.collectAsState()
 
     HomeContent(
         properties = properties,
         readingItems = readingItems,
+        insight = insight,
         onScanClick = onScanClick
     )
 }
@@ -89,6 +94,7 @@ fun HomeContent(
     properties: List<PropertyEntity>,
     readingItems: List<HomeReadingItem>,
     modifier: Modifier = Modifier,
+    insight: Insight? = null,
     onScanClick: () -> Unit = {}
 ) {
     // Determine the appropriate greeting based on the current time of day.
@@ -125,6 +131,14 @@ fun HomeContent(
                     LatestReadingHero(item = latest, onScanClick = onScanClick)
                 } else {
                     EmptyHero(onScanClick = onScanClick)
+                }
+            }
+        }
+
+        if (insight != null) {
+            item {
+                EntranceAnimation(delayMillis = 120) {
+                    InsightCard(insight = insight)
                 }
             }
         }
@@ -302,6 +316,46 @@ private fun EmptyHero(onScanClick: () -> Unit) {
 }
 
 /**
+ * This month's usage summary. Labelled when an on-device model wrote it, so it's clear where the words came from.
+ */
+@Composable
+private fun InsightCard(insight: Insight) {
+    SnaptricCard {
+        Column(
+            modifier = Modifier.padding(SnaptricSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(SnaptricSpacing.xs + 2.dp))
+                Text(
+                    text = "This month",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = insight.text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            if (insight.writtenOnDevice) {
+                Text(
+                    text = "Written on your phone by Gemma",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+/**
  * A compact stat tile where the value, not the label, carries the emphasis.
  */
 @Composable
@@ -435,7 +489,11 @@ fun HomeContentPreview() {
     SnaptricTheme {
         HomeContent(
             properties = previewProperties,
-            readingItems = buildHomeReadingItems(previewReadings, previewUtilities, previewProperties)
+            readingItems = buildHomeReadingItems(previewReadings, previewUtilities, previewProperties),
+            insight = Insight(
+                text = "You've used 180 kWh of electricity at Home so far this month, on track for about 290 kWh. That's 6% less than last month.",
+                writtenOnDevice = true
+            )
         )
     }
 }
