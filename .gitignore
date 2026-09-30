@@ -65,3 +65,6 @@ workspace.xml
 
 #Gemma model
 /app/src/main/assets/gemma*
+
+# macOS AppleDouble files (created on non-APFS volumes)
+._*
