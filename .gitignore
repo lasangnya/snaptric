@@ -12,6 +12,7 @@
 
 # Package Files #
 *.jar
+!gradle/wrapper/gradle-wrapper.jar
 *.war
 *.nar
 *.ear
@@ -65,3 +66,6 @@ workspace.xml
 
 #Gemma model
 /app/src/main/assets/gemma*
+
+# macOS AppleDouble files (created on non-APFS volumes)
+._*

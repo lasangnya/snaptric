@@ -36,7 +36,6 @@ import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
-import com.snaptric.core.domain.Reading
 import com.snaptric.feature.home.viewmodel.HomeViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -51,14 +50,10 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
-    val isAnalyzing by viewModel.isAnalyzing.collectAsState()
-    val latestRead by viewModel.latestRead.collectAsState()
     val properties by viewModel.properties.collectAsState()
     val readings by viewModel.readings.collectAsState()
 
     HomeContent(
-        isAnalyzing = isAnalyzing,
-        latestRead = latestRead,
         properties = properties,
         readings = readings
     )
@@ -70,8 +65,6 @@ fun HomeScreen(
  */
 @Composable
 fun HomeContent(
-    isAnalyzing: Boolean,
-    latestRead: Reading?,
     properties: List<PropertyEntity>,
     readings: List<ReadingEntity>,
     modifier: Modifier = Modifier
@@ -136,7 +129,7 @@ fun HomeContent(
                     )
                     SnaptricStatCard(
                         title = "Latest",
-                        value = latestRead?.value ?: "--",
+                        value = recentReadings.firstOrNull()?.value?.toString() ?: "--",
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.Bolt
                     )
@@ -201,26 +194,8 @@ fun HomeContent(
                 }
             }
         }
-
-        // Status indicator shown when AI is busy in the background.
-        if (isAnalyzing) {
-            item {
-                AnimatedVisibility(
-                    visible = true,
-                    enter = fadeIn(tween(400)) + slideInVertically(tween(400)) { it / 2 }
-                ) {
-                    Text(
-                        text = "AI is analyzing your photo...",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(vertical = SnaptricSpacing.sm)
-                    )
-                }
-            }
-        }
     }
 }
-
 
 private fun getGreeting(): String {
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -276,12 +251,6 @@ fun HomeContentPreview() {
     )
     SnaptricTheme {
         HomeContent(
-            isAnalyzing = false,
-            latestRead = Reading(
-                value = "1250.0",
-                timestamp = System.currentTimeMillis(),
-                source = "MLKit"
-            ),
             properties = sampleProperties,
             readings = sampleReadings
         )
@@ -293,8 +262,6 @@ fun HomeContentPreview() {
 fun HomeContentEmptyPreview() {
     SnaptricTheme {
         HomeContent(
-            isAnalyzing = false,
-            latestRead = null,
             properties = emptyList(),
             readings = emptyList()
         )
