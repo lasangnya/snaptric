@@ -113,3 +113,9 @@ val SnaptricTypography = Typography(
         letterSpacing = 0.5.sp
     )
 )
+
+/**
+ * Same style with tabular (fixed-width) digits, so meter values line up and don't jitter.
+ */
+val TextStyle.tabularNumbers: TextStyle
+    get() = copy(fontFeatureSettings = "tnum")

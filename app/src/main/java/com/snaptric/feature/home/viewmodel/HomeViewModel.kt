@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -28,5 +29,15 @@ class HomeViewModel @Inject constructor(
      */
     val readings = meterDao.getAllReadings()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Readings joined with their meter and property, newest first, with per-meter deltas.
+     */
+    val readingItems = combine(
+        meterDao.getAllReadings(),
+        meterDao.getAllUtilities(),
+        meterDao.getAllProperties(),
+        ::buildHomeReadingItems
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }
 

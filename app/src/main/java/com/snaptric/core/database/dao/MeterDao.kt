@@ -43,6 +43,12 @@ interface MeterDao {
     fun getUtilitiesForProperty(propertyId : Long) : Flow<List<UtilityEntity>>
 
     /**
+     * Retrieves every meter across all properties.
+     */
+    @Query("SELECT * FROM utility")
+    fun getAllUtilities() : Flow<List<UtilityEntity>>
+
+    /**
      * Persists a newly captured meter reading.
      */
     @Upsert
