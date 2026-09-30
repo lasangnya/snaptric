@@ -58,8 +58,7 @@ class SettingsViewModel @Inject constructor(
 
     fun deleteModel() {
         viewModelScope.launch(Dispatchers.IO) {
-            gemma.close()
-            downloader.delete()
+            gemma.unloadThen { downloader.delete() }
         }
     }
 }

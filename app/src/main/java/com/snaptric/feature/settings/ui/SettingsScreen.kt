@@ -78,7 +78,13 @@ fun SettingsContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(SnaptricSpacing.md),
+        // Extra bottom space so the camera button never covers the last item.
+        contentPadding = PaddingValues(
+            start = SnaptricSpacing.md,
+            end = SnaptricSpacing.md,
+            top = SnaptricSpacing.md,
+            bottom = 88.dp
+        ),
         verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
     ) {
         item {

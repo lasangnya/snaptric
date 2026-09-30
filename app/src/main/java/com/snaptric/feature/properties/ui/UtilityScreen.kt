@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
@@ -80,7 +81,8 @@ import java.util.Date
 @Composable
 fun UtilityScreen(
     viewModel: UtilityViewModel = hiltViewModel(),
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onScan: () -> Unit = {}
 ) {
     val readings by viewModel.readings.collectAsState()
     val utility by viewModel.utility.collectAsState()
@@ -95,7 +97,8 @@ fun UtilityScreen(
         onDeleteUtility = {
             viewModel.deleteUtility()
             onBack()
-        }
+        },
+        onScan = onScan
     )
 }
 
@@ -122,7 +125,8 @@ fun UtilityDetailContent(
     onEditReading: (ReadingEntity, Double) -> Unit = { _, _ -> },
     onDeleteReading: (ReadingEntity) -> Unit = {},
     onEditUtility: (UtilityEntity) -> Unit = {},
-    onDeleteUtility: () -> Unit = {}
+    onDeleteUtility: () -> Unit = {},
+    onScan: () -> Unit = {}
 ) {
     var dialog by remember { mutableStateOf<UtilityDialog?>(null) }
     val unit = utility?.unit.orEmpty()
@@ -137,6 +141,9 @@ fun UtilityDetailContent(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onScan) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = "Scan this meter")
+                    }
                     if (utility != null) {
                         IconButton(onClick = { dialog = UtilityDialog.EditMeter }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit meter")
