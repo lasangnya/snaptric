@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Lint, unit tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Lint
+        run: ./gradlew lintDebug --console=plain
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --console=plain
+
+      - name: Build debug APK and compile instrumented tests
+        run: ./gradlew assembleDebug compileDebugAndroidTestKotlin --console=plain
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
