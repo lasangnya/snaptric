@@ -51,6 +51,16 @@ class GemmaTextEngine(
         }
     }
 
+    /**
+     * Unloads the model, e.g. before its file is deleted. It loads again on next use.
+     */
+    suspend fun close() {
+        mutex.withLock {
+            engine?.close()
+            engine = null
+        }
+    }
+
     private fun engineOrInit(): Engine? =
         engine ?: modelLocator.findModel()?.let { model ->
             Engine(

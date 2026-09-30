@@ -5,6 +5,8 @@
         android:name="android.hardware.camera"
         android:required="false" />
     <uses-permission android:name = "android.permission.CAMERA" />
+    <!-- Only used to download the optional on-device Gemma model from Settings. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".SnaptricApplication"

@@ -20,6 +20,7 @@ import com.snaptric.feature.home.viewmodel.HomeViewModel
 import com.snaptric.feature.properties.ui.PropertiesScreen
 import com.snaptric.feature.properties.ui.PropertyDetailScreen
 import com.snaptric.feature.properties.ui.UtilityScreen
+import com.snaptric.feature.settings.ui.SettingsScreen
 import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
 /**
@@ -108,7 +109,7 @@ fun AppNavHost(
         
         // Settings Screen: App preferences.
         composable(TopLevelDestination.Settings.route){
-            /* TODO : Add settings screen */
+            SettingsScreen()
         }
         
         // Capture Screen: The camera-based meter scanning interface.

@@ -21,7 +21,7 @@ class GemmaModelLocator(private val context: Context) {
             ?.listFiles { file -> file.isFile && file.extension == "litertlm" && hasLiteRtLmHeader(file) }
             ?.maxByOrNull { it.lastModified() }
 
-    private companion object {
+    companion object {
         const val MODEL_DIR_NAME = "models"
     }
 }
