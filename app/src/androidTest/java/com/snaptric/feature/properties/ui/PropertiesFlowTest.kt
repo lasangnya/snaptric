@@ -2,7 +2,6 @@ package com.snaptric.feature.properties.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -84,8 +83,7 @@ class PropertiesFlowTest {
         composeTestRule.onNodeWithContentDescription("Add Property").performClick()
 
         // Type into the name field — find by the label text
-        composeTestRule.onNodeWithText("Property Name (e.g. Home)").performClick()
-        composeTestRule.onNode(hasSetTextAction()).performTextInput("Beach House")
+        composeTestRule.onNodeWithText("Property Name (e.g. Home)").performTextInput("Beach House")
 
         composeTestRule.onNodeWithText("Save").performClick()
 

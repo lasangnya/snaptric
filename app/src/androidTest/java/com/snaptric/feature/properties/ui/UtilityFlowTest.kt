@@ -2,7 +2,6 @@ package com.snaptric.feature.properties.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -89,8 +88,7 @@ class UtilityFlowTest {
         composeTestRule.onNodeWithContentDescription("Add Meter").performClick()
 
         // Type the initial reading
-        composeTestRule.onNodeWithText("Initial reading").performClick()
-        composeTestRule.onNode(hasSetTextAction()).performTextInput("250")
+        composeTestRule.onNodeWithText("Initial reading").performTextInput("250")
 
         composeTestRule.onNodeWithText("Save Meter").performClick()
 

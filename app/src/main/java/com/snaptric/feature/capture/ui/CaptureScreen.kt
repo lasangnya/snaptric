@@ -1,6 +1,14 @@
 package com.snaptric.feature.capture.ui
 
 import android.Manifest
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.AssistChip
+import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.domain.insights.ReadingCheck
+import com.snaptric.core.domain.insights.checkReading
+import com.snaptric.core.domain.insights.formatAmount
+import java.math.BigDecimal
+import kotlin.math.roundToInt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
@@ -125,6 +133,7 @@ fun CaptureScreen(
 
     val capturedBitmap by viewModel.capturedBitmap.collectAsState()
     val selectedPropertyId by viewModel.selectedPropertyId.collectAsState()
+    val selectedUtilityHistory by viewModel.selectedUtilityHistory.collectAsState()
 
     // Set once a reading is saved; shows the success animation, then closes the screen.
     var savedReading by remember { mutableStateOf<String?>(null) }
@@ -257,7 +266,9 @@ fun CaptureScreen(
                 properties = properties,
                 selectedPropertyId = selectedPropertyId,
                 utilities = utilities,
+                history = selectedUtilityHistory,
                 onPropertySelected = { viewModel.onPropertySelected(it) },
+                onUtilitySelected = { viewModel.onUtilitySelected(it) },
                 onDismiss = { viewModel.clearCapturedValue() },
                 onSave = { reading, utilId ->
                     viewModel.saveReading(reading, utilId)
@@ -395,7 +406,9 @@ fun ConfirmReadingSheet(
     properties: List<PropertyEntity>,
     selectedPropertyId: Long?,
     utilities: List<UtilityEntity>,
+    history: List<ReadingEntity>,
     onPropertySelected: (Long) -> Unit,
+    onUtilitySelected: (Long?) -> Unit,
     onDismiss: () -> Unit,
     onSave: (Double, Long) -> Unit,
     capturedBitmap: Bitmap?
@@ -404,6 +417,12 @@ fun ConfirmReadingSheet(
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
     val selectedUtility = utilities.firstOrNull { it.id == selectedUtilityId }
     val parsedValue = editedValue.toDoubleOrNull()
+    // Checked against the selected meter's history as the user edits the value.
+    val check = remember(parsedValue, history) {
+        parsedValue?.let { checkReading(it, System.currentTimeMillis(), history) } ?: ReadingCheck.Plausible
+    }
+
+    LaunchedEffect(selectedUtilityId) { onUtilitySelected(selectedUtilityId) }
 
     // Auto-select the first available utility (meter) for the selected property.
     LaunchedEffect(utilities) {
@@ -507,6 +526,14 @@ fun ConfirmReadingSheet(
                 }
             }
 
+            if (check != ReadingCheck.Plausible) {
+                ReadingWarning(
+                    check = check,
+                    unit = selectedUtility?.unit.orEmpty(),
+                    onUseSuggestion = { editedValue = it }
+                )
+            }
+
             Spacer(modifier = Modifier.height(SnaptricSpacing.xs))
 
             // Actions sit at the bottom, in easy thumb reach.
@@ -526,7 +553,56 @@ fun ConfirmReadingSheet(
                     modifier = Modifier
                         .weight(2f)
                         .height(56.dp)
-                ) { Text("Save reading") }
+                ) { Text(if (check == ReadingCheck.Plausible) "Save reading" else "Save anyway") }
+            }
+        }
+    }
+}
+
+/**
+ * Explains why a reading looks wrong, in the meter's own units, and offers the likely fix.
+ */
+@Composable
+private fun ReadingWarning(check: ReadingCheck, unit: String, onUseSuggestion: (String) -> Unit) {
+    val warning = MaterialTheme.colorScheme.error
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, warning.copy(alpha = 0.4f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(SnaptricSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)
+        ) {
+            val unitSuffix = if (unit.isBlank()) "" else " $unit"
+            when (check) {
+                is ReadingCheck.LowerThanPrevious -> {
+                    Text("Lower than last time", style = MaterialTheme.typography.titleSmall, color = warning)
+                    Text(
+                        "The last reading was ${formatMeterValue(check.previous)}$unitSuffix. Meters only count up, so check each digit.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                is ReadingCheck.UnusuallyHigh -> {
+                    val days = check.days.roundToInt().coerceAtLeast(1)
+                    val times = (check.usedSinceLast / check.days / check.typicalPerDay).roundToInt()
+                    Text("This looks off", style = MaterialTheme.typography.titleSmall, color = warning)
+                    Text(
+                        "That's ${formatAmount(check.usedSinceLast)}$unitSuffix in ${if (days == 1) "1 day" else "$days days"}, " +
+                            "about $times× your usual ${formatAmount(check.typicalPerDay)}$unitSuffix a day." +
+                            if (check.suggestion != null) " Was the decimal point missed?" else "",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    check.suggestion?.let { suggestion ->
+                        val text = BigDecimal.valueOf(suggestion).stripTrailingZeros().toPlainString()
+                        AssistChip(
+                            onClick = { onUseSuggestion(text) },
+                            label = { Text("Use $text") }
+                        )
+                    }
+                }
+                ReadingCheck.Plausible -> Unit
             }
         }
     }
