@@ -10,6 +10,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChipDefaults
@@ -19,6 +21,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import com.snaptric.core.designsystem.components.accentColor
+import com.snaptric.core.designsystem.components.formatMeterValue
 import com.snaptric.core.designsystem.components.icon
 import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.EcoGreen
@@ -259,7 +262,7 @@ fun CaptureScreen(
                 onSave = { reading, utilId ->
                     viewModel.saveReading(reading, utilId)
                     savedReading = utilities.firstOrNull { it.id == utilId }
-                        ?.let { "$reading ${it.unit}" } ?: reading.toString()
+                        ?.let { "${formatMeterValue(reading)} ${it.unit}" } ?: formatMeterValue(reading)
                 },
                 capturedBitmap = capturedBitmap
             )
@@ -417,6 +420,7 @@ fun ConfirmReadingSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = SnaptricSpacing.lg)
                 .padding(bottom = SnaptricSpacing.lg),
             verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
@@ -469,7 +473,8 @@ fun ConfirmReadingSheet(
                     FilterChip(
                         selected = prop.id == selectedPropertyId,
                         onClick = { onPropertySelected(prop.id) },
-                        label = { Text(prop.name) }
+                        label = { Text(prop.name) },
+                        colors = selectedChipColors()
                     )
                 }
             }
@@ -495,7 +500,8 @@ fun ConfirmReadingSheet(
                                     modifier = Modifier.size(FilterChipDefaults.IconSize)
                                 )
                             },
-                            label = { Text("${util.name ?: util.type.label} (${util.unit})") }
+                            label = { Text("${util.name ?: util.type.label} (${util.unit})") },
+                            colors = selectedChipColors()
                         )
                     }
                 }
@@ -525,6 +531,12 @@ fun ConfirmReadingSheet(
         }
     }
 }
+
+@Composable
+private fun selectedChipColors() = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
 
 @Composable
 private fun SheetLabel(text: String) {

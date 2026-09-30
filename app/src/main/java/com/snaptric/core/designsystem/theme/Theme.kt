@@ -40,6 +40,16 @@ private val LightColorScheme = lightColorScheme(
 
     surfaceTint = Amber70,
 
+    // Warm neutral containers; without these Material 3 falls back to its default lavender
+    // tones for sheets, dialogs and the navigation bar.
+    surfaceBright = Color(0xFFFFFFFF),
+    surfaceDim = Color(0xFFE3DFDA),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFFBF9F6),
+    surfaceContainer = Color(0xFFF3F0EC),
+    surfaceContainerHigh = Color(0xFFEEEAE6),
+    surfaceContainerHighest = Color(0xFFE8E4DF),
+
     inverseSurface = Charcoal20,
     inverseOnSurface = Charcoal95,
     inversePrimary = Amber80,
@@ -83,6 +93,14 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = Charcoal70,
 
     surfaceTint = Amber70,
+
+    surfaceBright = Color(0xFF3A3836),
+    surfaceDim = Charcoal10,
+    surfaceContainerLowest = Color(0xFF121212),
+    surfaceContainerLow = Color(0xFF211F1D),
+    surfaceContainer = Color(0xFF262422),
+    surfaceContainerHigh = Color(0xFF302E2C),
+    surfaceContainerHighest = Color(0xFF3B3937),
 
     inverseSurface = Color(0xFFF7F5F2),
     inverseOnSurface = Charcoal10,

@@ -21,6 +21,7 @@ import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.theme.ElectricityYellow
 import com.snaptric.core.designsystem.theme.GasOrange
 import com.snaptric.core.designsystem.theme.WaterBlue
+import java.util.Locale
 
 /**
  * Accent colour used to identify a utility type across the app.
@@ -72,3 +73,11 @@ fun UtilityIconBadge(
         )
     }
 }
+
+/**
+ * Formats a meter value with at most two decimals and no trailing zeros, e.g. 1250.0 -> "1250".
+ */
+fun formatMeterValue(value: Double): String =
+    String.format(Locale.getDefault(), "%.2f", value)
+        .trimEnd('0')
+        .trimEnd('.', ',')

@@ -48,6 +48,7 @@ import com.snaptric.core.designsystem.components.SnaptricCard
 import com.snaptric.core.designsystem.components.SnaptricSectionHeader
 import com.snaptric.core.designsystem.components.UtilityIconBadge
 import com.snaptric.core.designsystem.components.accentColor
+import com.snaptric.core.designsystem.components.formatMeterValue
 import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
@@ -223,7 +224,7 @@ private fun LatestReadingHero(item: HomeReadingItem, onScanClick: () -> Unit) {
 
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = formatValue(item.reading.value),
+                    text = formatMeterValue(item.reading.value),
                     style = MaterialTheme.typography.displaySmall.tabularNumbers.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 44.sp,
@@ -362,7 +363,7 @@ private fun RecentReadingRow(item: HomeReadingItem) {
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = formatValue(item.reading.value),
+                    text = formatMeterValue(item.reading.value),
                     style = MaterialTheme.typography.titleMedium.tabularNumbers,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -407,17 +408,9 @@ private fun formatTimestamp(timestamp: Long): String {
     return sdf.format(Date(timestamp))
 }
 
-/**
- * Formats a meter value with at most two decimals and no trailing zeros, e.g. 1250.0 -> "1250".
- */
-internal fun formatValue(value: Double): String =
-    String.format(Locale.getDefault(), "%.2f", value)
-        .trimEnd('0')
-        .trimEnd('.', ',')
-
 private fun formatDelta(delta: Double, unit: String?): String {
     val sign = if (delta >= 0) "+" else "−"
-    return listOfNotNull(sign + formatValue(kotlin.math.abs(delta)), unit).joinToString(" ")
+    return listOfNotNull(sign + formatMeterValue(kotlin.math.abs(delta)), unit).joinToString(" ")
 }
 
 private val previewProperties = listOf(
