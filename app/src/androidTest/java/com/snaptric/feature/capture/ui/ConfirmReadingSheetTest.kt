@@ -12,6 +12,7 @@ import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.core.domain.insights.MeterMatch
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -32,7 +33,12 @@ class ConfirmReadingSheetTest {
         ReadingEntity(id = 2, utilityId = 1, value = 1262.4, timestamp = now - 2 * day, source = "MLKit")
     )
 
-    private fun showSheet(detectedValue: String, onSave: (Double, Long) -> Unit = { _, _ -> }) {
+    private fun showSheet(
+        detectedValue: String,
+        uncertainDigits: Set<Int> = emptySet(),
+        meterMatch: MeterMatch? = null,
+        onSave: (Double, Long) -> Unit = { _, _ -> }
+    ) {
         composeTestRule.setContent {
             SnaptricTheme {
                 ConfirmReadingSheet(
@@ -47,7 +53,9 @@ class ConfirmReadingSheetTest {
                     onUtilitySelected = {},
                     onDismiss = {},
                     onSave = onSave,
-                    capturedBitmap = null
+                    capturedBitmap = null,
+                    uncertainDigits = uncertainDigits,
+                    meterMatch = meterMatch
                 )
             }
         }
@@ -56,7 +64,7 @@ class ConfirmReadingSheetTest {
     @Test
     fun missedDecimal_showsWarningAndAppliesSuggestion() {
         var saved: Double? = null
-        showSheet(detectedValue = "12904") { value, _ -> saved = value }
+        showSheet(detectedValue = "12904", onSave = { value, _ -> saved = value })
 
         composeTestRule.onNodeWithText("This looks off").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Use 1290.4").performScrollTo().performClick()
@@ -72,5 +80,18 @@ class ConfirmReadingSheetTest {
 
         composeTestRule.onNodeWithText("Save reading").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("This looks off").assertDoesNotExist()
+    }
+
+    @Test
+    fun uncertainDigitsAndSerialMatch_areExplained() {
+        val meter = UtilityEntity(id = 1, propertyId = 1, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0, serialNumber = "20481733")
+        showSheet(
+            detectedValue = "1290.4",
+            uncertainDigits = setOf(2),
+            meterMatch = MeterMatch(meter, MeterMatch.Reason.SERIAL_NUMBER)
+        )
+
+        composeTestRule.onNodeWithText("Check the highlighted digit.").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Matched by serial number …1733").performScrollTo().assertIsDisplayed()
     }
 }

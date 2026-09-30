@@ -2,6 +2,7 @@ package com.snaptric
 
 import android.content.Context
 import com.snaptric.ai.insights.GemmaInsightWriter
+import com.snaptric.ai.litertlm.GemmaModelDownloader
 import com.snaptric.ai.litertlm.GemmaModelLocator
 import com.snaptric.ai.litertlm.GemmaTextEngine
 import com.snaptric.ai.mlkit.MlKitReadingAnalyzer
@@ -37,12 +38,30 @@ object AppModule{
     }
 
     /**
+     * Provides where on-device models are stored.
+     */
+    @Provides
+    @Singleton
+    fun provideGemmaModelLocator(@ApplicationContext context: Context) : GemmaModelLocator{
+        return GemmaModelLocator(context)
+    }
+
+    /**
+     * Provides the downloader that installs the Gemma model from Settings.
+     */
+    @Provides
+    @Singleton
+    fun provideGemmaModelDownloader(@ApplicationContext context: Context, locator: GemmaModelLocator) : GemmaModelDownloader{
+        return GemmaModelDownloader(context, locator)
+    }
+
+    /**
      * Provides the on-device Gemma engine (LiteRT-LM). It only loads a model if one is installed.
      */
     @Provides
     @Singleton
-    fun provideGemmaTextEngine(@ApplicationContext context: Context) : GemmaTextEngine{
-        return GemmaTextEngine(GemmaModelLocator(context), context.cacheDir)
+    fun provideGemmaTextEngine(@ApplicationContext context: Context, locator: GemmaModelLocator) : GemmaTextEngine{
+        return GemmaTextEngine(locator, context.cacheDir)
     }
 
     /**

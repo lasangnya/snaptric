@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.domain.MeterReadingAnalyzer
+import com.snaptric.core.domain.insights.MeterMatch
+import com.snaptric.core.domain.insights.matchMeter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -37,6 +40,17 @@ class CaptureViewModel @Inject constructor(
 
     // Which engine produced the current value (e.g. "MLKit" or "Gemma"), saved with the reading.
     private var capturedSource: String = "MLKit"
+
+    // The serial number seen in the photo, remembered on the chosen meter when it has none yet.
+    private var capturedSerial: String? = null
+
+    // Digit positions the analyzer was unsure about, highlighted for the user to check.
+    private val _uncertainDigits = MutableStateFlow<Set<Int>>(emptySet())
+    val uncertainDigits = _uncertainDigits.asStateFlow()
+
+    // The meter this scan most likely belongs to, pre-selected in the confirmation sheet.
+    private val _meterMatch = MutableStateFlow<MeterMatch?>(null)
+    val meterMatch = _meterMatch.asStateFlow()
 
     // The string result returned from the AI analyzer.
     private val _capturedValue = MutableStateFlow<String?>(null)
@@ -81,16 +95,26 @@ class CaptureViewModel @Inject constructor(
     }
     
     /**
-     * Triggers the AI analysis on the provided [bitmap].
-     * Updates the [_isAnalyzing] and [_capturedValue] states.
+     * Triggers the AI analysis on the provided [bitmap] (the counter strip), using [fullFrame] to
+     * look for the serial number. Then works out which meter the reading most likely belongs to.
      */
-    fun analyzeAndShowDialog(bitmap: Bitmap) {
+    fun analyzeAndShowDialog(bitmap: Bitmap, fullFrame: Bitmap? = null) {
         _capturedBitmap.value =bitmap
         viewModelScope.launch {
             _isAnalyzing.value = true
             try {
-                val reading = meterReadingAnalyzer.analyze(bitmap)
+                val reading = meterReadingAnalyzer.analyze(bitmap, fullFrame)
                 capturedSource = reading.source
+                capturedSerial = reading.serialNumber
+                _uncertainDigits.value = reading.uncertainDigits
+                val match = matchMeter(
+                    serialNumber = reading.serialNumber,
+                    value = reading.value?.toDoubleOrNull(),
+                    utilities = meterDao.getAllUtilities().first(),
+                    readings = meterDao.getAllReadings().first()
+                )
+                _meterMatch.value = match
+                match?.let { selectedPropertyId.value = it.utility.propertyId }
                 _capturedValue.value = reading.value
             } finally {
                 _isAnalyzing.value = false
@@ -99,7 +123,8 @@ class CaptureViewModel @Inject constructor(
     }
 
     /**
-     * Persists the confirmed reading to the database.
+     * Persists the confirmed reading to the database. If the photo showed a serial number and the
+     * meter doesn't have one yet, it's saved on the meter so future scans match automatically.
      */
     fun saveReading(value : Double, utilityId : Long){
         viewModelScope.launch {
@@ -111,10 +136,17 @@ class CaptureViewModel @Inject constructor(
                     source = capturedSource
                 )
             )
+            capturedSerial?.let { serial ->
+                val meters = meterDao.getAllUtilities().first()
+                val meter = meters.firstOrNull { it.id == utilityId }
+                if (meter != null && meter.serialNumber == null && meters.none { it.serialNumber == serial }) {
+                    meterDao.insertUtility(meter.copy(serialNumber = serial))
+                }
+            }
             _capturedValue.value = null // reset to close the dialog
         }
     }
-    
+
     /**
      * Clears the current captured value to dismiss the confirmation dialog.
      */

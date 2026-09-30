@@ -113,4 +113,22 @@ class MeterRecapTest {
         assertEquals("12.5", formatAmount(12.46))
         assertEquals("12", formatAmount(12.0))
     }
+
+    @Test
+    fun `monthly usage sums deltas into the later reading's month and skips drops`() {
+        val usage = monthlyUsage(
+            listOf(
+                reading("2026-08-31", 1000.0),
+                reading("2026-09-15", 1150.0),
+                reading("2026-09-30", 1300.0),
+                reading("2026-10-05", 1290.0), // drop: skipped
+                reading("2026-10-20", 1350.0)
+            ),
+            zone
+        )
+
+        assertEquals(300.0, usage.getValue(java.time.YearMonth.of(2026, 9)), 0.001)
+        assertEquals(60.0, usage.getValue(java.time.YearMonth.of(2026, 10)), 0.001)
+        assertEquals(listOf(java.time.YearMonth.of(2026, 9), java.time.YearMonth.of(2026, 10)), usage.keys.toList())
+    }
 }

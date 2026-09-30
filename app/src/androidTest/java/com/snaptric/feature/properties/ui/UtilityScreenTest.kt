@@ -3,6 +3,8 @@ package com.snaptric.feature.properties.ui
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.snaptric.core.database.entity.ReadingEntity
@@ -70,5 +72,48 @@ class UtilityScreenTest {
 
         // The header should be visible
         composeTestRule.onNodeWithText("Reading History").assertIsDisplayed()
+    }
+
+    @Test
+    fun tappingReading_opensEditDialog_andDeleteRemovesIt() {
+        val reading = ReadingEntity(id = 1, utilityId = 1, value = 1234.0, timestamp = System.currentTimeMillis(), source = "MLKit")
+        var deleted: ReadingEntity? = null
+
+        composeTestRule.setContent {
+            SnaptricTheme {
+                UtilityDetailContent(
+                    readings = listOf(reading),
+                    onBack = {},
+                    onDeleteReading = { deleted = it }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("1234").performClick()
+        composeTestRule.onNodeWithText("Correct reading").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Delete").performClick()
+
+        org.junit.Assert.assertEquals(reading, deleted)
+    }
+
+    @Test
+    fun emptyState_letsYouTypeTheFirstReading() {
+        var added: Double? = null
+
+        composeTestRule.setContent {
+            SnaptricTheme {
+                UtilityDetailContent(
+                    readings = emptyList(),
+                    onBack = {},
+                    onAddReading = { added = it }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Type a reading instead").performClick()
+        composeTestRule.onNodeWithText("Meter reading").performTextInput("1262.4")
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        org.junit.Assert.assertEquals(1262.4, added!!, 0.0001)
     }
 }

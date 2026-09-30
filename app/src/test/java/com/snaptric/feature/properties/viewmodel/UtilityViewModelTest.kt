@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.snaptric.MainDispatcherRule
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.ReadingEntity
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -53,5 +54,38 @@ class UtilityViewModelTest {
             assertEquals(emptyList<ReadingEntity>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `manual reading is saved for this meter as Manual`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = UtilityViewModel(meterDao, SavedStateHandle(mapOf("utilityId" to 99L)))
+
+        viewModel.addManualReading(1262.4)
+        advanceUntilIdle()
+
+        coVerify { meterDao.insertReading(match { it.utilityId == 99L && it.value == 1262.4 && it.source == "Manual" }) }
+    }
+
+    @Test
+    fun `correcting a reading keeps its id and time`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = UtilityViewModel(meterDao, SavedStateHandle(mapOf("utilityId" to 99L)))
+        val reading = ReadingEntity(id = 7L, utilityId = 99L, value = 12624.0, timestamp = 1700000000L, source = "MLKit")
+
+        viewModel.updateReading(reading, 1262.4)
+        advanceUntilIdle()
+
+        coVerify { meterDao.insertReading(reading.copy(value = 1262.4)) }
+    }
+
+    @Test
+    fun `deleting removes the reading or the whole meter`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = UtilityViewModel(meterDao, SavedStateHandle(mapOf("utilityId" to 99L)))
+
+        viewModel.deleteReading(ReadingEntity(id = 7L, utilityId = 99L, value = 1.0, timestamp = 0L, source = "MLKit"))
+        viewModel.deleteUtility()
+        advanceUntilIdle()
+
+        coVerify { meterDao.deleteReading(7L) }
+        coVerify { meterDao.deleteUtility(99L) }
     }
 }

@@ -8,7 +8,9 @@ import android.graphics.Bitmap
  */
 interface MeterReadingAnalyzer{
     /**
-     * Analyzes the provided [bitmap] to detect and extract numeric meter values.
+     * Analyzes the provided [bitmap] (the counter area) to detect and extract numeric meter values.
+     * [fullFrame], when given, is the whole photo, used to find details outside the counter such
+     * as the serial number.
      */
-    suspend fun analyze(bitmap: Bitmap) : Reading
+    suspend fun analyze(bitmap: Bitmap, fullFrame: Bitmap? = null) : Reading
 }

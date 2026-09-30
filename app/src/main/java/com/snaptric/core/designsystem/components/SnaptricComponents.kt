@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -203,9 +204,8 @@ fun SnaptricEmptyState(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (actionLabel != null && onAction != null) {
-                Spacer(modifier = Modifier.height(SnaptricSpacing.md))
-                // Action button would go here — keeping it simple for now
-                // Consumers can add their own CTA below this composable
+                Spacer(modifier = Modifier.height(SnaptricSpacing.lg))
+                Button(onClick = onAction) { Text(actionLabel) }
             }
         }
     }

@@ -16,6 +16,7 @@ import androidx.room.PrimaryKey
  * @property unit The measurement unit (e.g., "kWh", "m³").
  * @property initialReading The starting value of the meter when added to the app.
  * @property name Optional descriptive name (e.g., "Main Floor Meter").
+ * @property serialNumber The meter's serial number, learned from photos so scans can be matched to it.
  */
 @Entity(
     tableName = "utility",
@@ -35,7 +36,8 @@ data class UtilityEntity(
     val type: UtilityType, // e.g., "Electricity", "Water", "Gas
     val unit: String, // m3, kwh, l etc...
     val initialReading : Double,
-    val name : String? = null // optional e.g - Main Meter, Solar Meter etc...
+    val name : String? = null, // optional e.g - Main Meter, Solar Meter etc...
+    val serialNumber : String? = null
 )
 
 /**

@@ -1,9 +1,31 @@
 package com.snaptric.feature.capture.ui
 
 import android.Manifest
+import androidx.camera.core.Camera
+import androidx.camera.core.ImageAnalysis
+import androidx.compose.material.icons.filled.AutoMode
+import androidx.compose.material.icons.filled.FlashlightOff
+import androidx.compose.material.icons.filled.FlashlightOn
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.snaptric.ai.mlkit.LiveCounterReader
+import com.snaptric.ai.mlkit.LiveFrame
+import com.snaptric.ai.mlkit.StableReadingDetector
+import java.util.concurrent.Executors
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.style.TextAlign
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.material3.AssistChip
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.domain.insights.MeterMatch
 import com.snaptric.core.domain.insights.ReadingCheck
 import com.snaptric.core.domain.insights.checkReading
 import com.snaptric.core.domain.insights.formatAmount
@@ -134,6 +156,8 @@ fun CaptureScreen(
     val capturedBitmap by viewModel.capturedBitmap.collectAsState()
     val selectedPropertyId by viewModel.selectedPropertyId.collectAsState()
     val selectedUtilityHistory by viewModel.selectedUtilityHistory.collectAsState()
+    val uncertainDigits by viewModel.uncertainDigits.collectAsState()
+    val meterMatch by viewModel.meterMatch.collectAsState()
 
     // Set once a reading is saved; shows the success animation, then closes the screen.
     var savedReading by remember { mutableStateOf<String?>(null) }
@@ -145,15 +169,35 @@ fun CaptureScreen(
     }
 
 
-    // Verify camera permission is granted before showing the preview.
-    val hasCameraPermission = remember {
-        ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
+    // Camera permission is asked for here, when it's needed, and re-checked whenever the screen
+    // resumes so granting it in system Settings takes effect without leaving the screen.
+    fun cameraGranted() = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
+
+    var hasCameraPermission by remember { mutableStateOf(cameraGranted()) }
+    var permissionAsked by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        hasCameraPermission = granted
+        permissionAsked = true
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { hasCameraPermission = cameraGranted() }
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) permissionLauncher.launch(Manifest.permission.CAMERA)
     }
     if (!hasCameraPermission) {
-        Text(text = "Camera permission is required to capture photos.")
+        CameraPermissionNeeded(
+            // After a denial Android may stop showing the prompt, so offer system Settings instead.
+            showSettings = permissionAsked,
+            onAllow = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+            onOpenSettings = {
+                context.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                )
+            },
+            onClose = onClose
+        )
         return
     }
 
@@ -164,12 +208,72 @@ fun CaptureScreen(
         }
     }
 
-    // CameraX setup: Binds the camera preview and image capture use cases to the lifecycle.
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    var torchOn by remember { mutableStateOf(false) }
+    var autoCapture by rememberSaveable { mutableStateOf(true) }
+    var capturing by remember { mutableStateOf(false) }
+    var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
+    val stableDetector = remember { StableReadingDetector() }
+
+    // Takes the photo, crops it to the target strip, and sends both to the analyzer.
+    fun capture() {
+        if (capturing) return
+        capturing = true
+        imageCapture.takePicture(
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    // Rotate to match what the user sees, then keep only the area inside the overlay.
+                    val rotationDegrees = image.imageInfo.rotationDegrees
+                    val rawBitmap = image.toBitmap()
+                    val rotatedBitmap = if (rotationDegrees != 0) {
+                        val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
+                        Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
+                    } else {
+                        rawBitmap
+                    }
+                    val croppedBitmap = cropToCenterStrip(rotatedBitmap)
+                    viewModel.analyzeAndShowDialog(croppedBitmap, fullFrame = rotatedBitmap)
+                    image.close()
+                    capturing = false
+                }
+                override fun onError(e: ImageCaptureException) {
+                    capturing = false
+                }
+            }
+        )
+    }
+
+    // Reads the counter from preview frames so the photo can be taken automatically once it's steady.
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    val liveReader = remember { LiveCounterReader(cropToTarget = ::cropToCenterStrip) { liveFrame = it } }
+    DisposableEffect(Unit) {
+        onDispose {
+            analysisExecutor.shutdown()
+            liveReader.close()
+        }
+    }
+
+    // CameraX setup: binds preview, photo capture and live analysis to the lifecycle.
     LaunchedEffect(Unit) {
         val cameraProvider = ProcessCameraProvider.getInstance(context).get()
         val preview = Preview.Builder().build().also { it.surfaceProvider = previewView.surfaceProvider }
+        val analysis = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .build()
+            .also { it.setAnalyzer(analysisExecutor, liveReader) }
         cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
+        camera = cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture, analysis)
+    }
+
+    LaunchedEffect(torchOn, camera) { camera?.cameraControl?.enableTorch(torchOn) }
+
+    // Auto-capture: once the same reading has been seen for a few frames, take the photo.
+    LaunchedEffect(liveFrame) {
+        val stable = stableDetector.offer(liveFrame?.value)
+        if (stable != null && autoCapture && !isAnalyzing && capturedValue == null && savedReading == null) {
+            capture()
+        }
     }
 
     Box(
@@ -185,6 +289,44 @@ fun CaptureScreen(
         
         // Draw the visual guides (rectangle and scanning line).
         CaptureOverlay()
+
+        // Live feedback under the target strip.
+        if (capturedValue == null && !isAnalyzing) {
+            LiveHint(
+                frame = liveFrame,
+                autoCapture = autoCapture,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(top = 140.dp)
+            )
+        }
+
+        // Auto-capture and torch controls.
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(SnaptricSpacing.md),
+            horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)
+        ) {
+            CameraToggle(
+                checked = autoCapture,
+                onCheckedChange = {
+                    autoCapture = it
+                    stableDetector.reset()
+                },
+                icon = Icons.Default.AutoMode,
+                label = if (autoCapture) "Auto on" else "Auto off"
+            )
+            if (camera?.cameraInfo?.hasFlashUnit() == true) {
+                CameraToggle(
+                    checked = torchOn,
+                    onCheckedChange = { torchOn = it },
+                    icon = if (torchOn) Icons.Default.FlashlightOn else Icons.Default.FlashlightOff,
+                    label = "Torch",
+                    highlight = liveFrame?.tooDark == true && !torchOn
+                )
+            }
+        }
         
         // Button to exit the capture screen.
         Surface(
@@ -221,37 +363,7 @@ fun CaptureScreen(
                 contentAlignment = Alignment.Center
             ) {
                 IconButton(
-                    onClick = {
-                        // Take the picture and handle the captured image proxy.
-                        imageCapture.takePicture(
-                            ContextCompat.getMainExecutor(context),
-                            object : ImageCapture.OnImageCapturedCallback() {
-                                override fun onCaptureSuccess(image: ImageProxy) {
-                                    // 1. Get rotation from the camera sensor to ensure upright image.
-                                    val rotationDegrees = image.imageInfo.rotationDegrees
-
-                                    // 2. Convert to Bitmap
-                                    val rawBitmap = image.toBitmap()
-
-                                    // 3. Rotate the bitmap to match the visual orientation.
-                                    val rotatedBitmap = if (rotationDegrees != 0) {
-                                        val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
-                                        Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
-                                    } else {
-                                        rawBitmap
-                                    }
-
-                                    // 4. Crop the bitmap to only include the area inside the UI overlay.
-                                    val croppedBitmap = cropToCenterStrip(rotatedBitmap)
-
-                                    // 5. Send the cropped image to the ViewModel for AI analysis.
-                                    viewModel.analyzeAndShowDialog(croppedBitmap)
-                                    image.close()
-                                }
-                                override fun onError(e: ImageCaptureException) {}
-                            }
-                        )
-                    },
+                    onClick = { capture() },
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = "capture", tint = Charcoal10)
@@ -267,6 +379,8 @@ fun CaptureScreen(
                 selectedPropertyId = selectedPropertyId,
                 utilities = utilities,
                 history = selectedUtilityHistory,
+                uncertainDigits = uncertainDigits,
+                meterMatch = meterMatch,
                 onPropertySelected = { viewModel.onPropertySelected(it) },
                 onUtilitySelected = { viewModel.onUtilitySelected(it) },
                 onDismiss = { viewModel.clearCapturedValue() },
@@ -280,6 +394,105 @@ fun CaptureScreen(
         }
 
         savedReading?.let { SaveSuccessOverlay(savedValue = it) }
+    }
+}
+
+/**
+ * Tells the user what the viewfinder sees: the digits it's reading, whether to hold steady, or
+ * that it's too dark.
+ */
+@Composable
+private fun LiveHint(frame: LiveFrame?, autoCapture: Boolean, modifier: Modifier = Modifier) {
+    val text = when {
+        frame?.tooDark == true -> "Too dark to read. Turn on the torch."
+        frame?.value != null && autoCapture -> "Reading ${frame.value} · hold steady"
+        frame?.value != null -> "Reading ${frame.value}"
+        else -> "Line up the meter's numbers in the box"
+    }
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(50),
+        color = Charcoal20.copy(alpha = 0.75f),
+        contentColor = Color.White
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge.tabularNumbers,
+            modifier = Modifier.padding(horizontal = SnaptricSpacing.md, vertical = SnaptricSpacing.sm)
+        )
+    }
+}
+
+/**
+ * A pill-shaped on/off control over the camera preview.
+ */
+@Composable
+private fun CameraToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector,
+    label: String,
+    highlight: Boolean = false
+) {
+    Surface(
+        onClick = { onCheckedChange(!checked) },
+        shape = RoundedCornerShape(50),
+        color = when {
+            checked || highlight -> MaterialTheme.colorScheme.primary
+            else -> Charcoal20.copy(alpha = 0.7f)
+        },
+        contentColor = if (checked || highlight) MaterialTheme.colorScheme.onPrimary else Color.White
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/**
+ * Explains why the camera is needed and how to allow it.
+ */
+@Composable
+private fun CameraPermissionNeeded(
+    showSettings: Boolean,
+    onAllow: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onClose: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(SnaptricSpacing.lg),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CameraAlt,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp)
+            )
+            Text("Allow camera access", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Snaptric reads your meter from a photo. Photos are processed on this phone and never uploaded.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Button(onClick = if (showSettings) onOpenSettings else onAllow) {
+                Text(if (showSettings) "Open settings" else "Allow camera")
+            }
+            TextButton(onClick = onClose) { Text("Not now") }
+        }
     }
 }
 
@@ -411,7 +624,9 @@ fun ConfirmReadingSheet(
     onUtilitySelected: (Long?) -> Unit,
     onDismiss: () -> Unit,
     onSave: (Double, Long) -> Unit,
-    capturedBitmap: Bitmap?
+    capturedBitmap: Bitmap?,
+    uncertainDigits: Set<Int> = emptySet(),
+    meterMatch: MeterMatch? = null
 ) {
     var editedValue by remember { mutableStateOf(detectedValue) }
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
@@ -425,9 +640,12 @@ fun ConfirmReadingSheet(
     LaunchedEffect(selectedUtilityId) { onUtilitySelected(selectedUtilityId) }
 
     // Auto-select the first available utility (meter) for the selected property.
-    LaunchedEffect(utilities) {
-        if (selectedUtilityId == null || !utilities.any { it.id == selectedUtilityId }) {
-            selectedUtilityId = utilities.firstOrNull()?.id
+    LaunchedEffect(utilities, meterMatch) {
+        val matched = meterMatch?.utility?.id?.takeIf { id -> utilities.any { it.id == id } }
+        if (matched != null && selectedUtilityId == null) {
+            selectedUtilityId = matched
+        } else if (selectedUtilityId == null || !utilities.any { it.id == selectedUtilityId }) {
+            selectedUtilityId = matched ?: utilities.firstOrNull()?.id
         }
     }
 
@@ -486,6 +704,11 @@ fun ConfirmReadingSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            // Point out digits OCR wasn't sure about, until the user edits the value.
+            if (uncertainDigits.isNotEmpty() && editedValue == detectedValue) {
+                UncertainDigits(value = detectedValue, uncertain = uncertainDigits)
+            }
+
             SheetLabel("Property")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
                 items(properties, key = { it.id }) { prop ->
@@ -499,6 +722,18 @@ fun ConfirmReadingSheet(
             }
 
             SheetLabel("Meter")
+            meterMatch?.takeIf { it.utility.id == selectedUtilityId }?.let { match ->
+                Text(
+                    text = when (match.reason) {
+                        MeterMatch.Reason.SERIAL_NUMBER ->
+                            "Matched by serial number …${match.utility.serialNumber.orEmpty().takeLast(4)}"
+                        MeterMatch.Reason.CLOSEST_READING ->
+                            "Chosen because its last reading is just below this one"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             if (utilities.isEmpty()) {
                 Text(
                     "This property has no meters yet. Add one under Properties first.",
@@ -605,6 +840,36 @@ private fun ReadingWarning(check: ReadingCheck, unit: String, onUseSuggestion: (
                 ReadingCheck.Plausible -> Unit
             }
         }
+    }
+}
+
+/**
+ * Shows the detected value digit by digit, with the ones OCR was unsure about highlighted.
+ */
+@Composable
+private fun UncertainDigits(value: String, uncertain: Set<Int>) {
+    Column(verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            value.forEachIndexed { index, char ->
+                val flagged = index in uncertain
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (flagged) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    border = if (flagged) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                ) {
+                    Text(
+                        text = char.toString(),
+                        style = MaterialTheme.typography.titleMedium.tabularNumbers,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+        }
+        Text(
+            text = if (uncertain.size == 1) "Check the highlighted digit." else "Check the highlighted digits.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
