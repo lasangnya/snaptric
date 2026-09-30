@@ -11,7 +11,7 @@ import kotlinx.coroutines.tasks.await
 
 /**
  * An implementation of [MeterReadingAnalyzer] that uses Google ML Kit's Text Recognition.
- * This analyzer extracts numeric sequences from a bitmap.
+ * This analyzer finds the meter counter among the numbers in a bitmap (see [pickMeterNumber]).
  */
 class MlKitReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer {
     // Initialize the ML Kit text recognizer with default Latin script options.
@@ -28,8 +28,11 @@ class MlKitReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer 
         // Process the image and wait for the results.
         val result = recognizer.process(image).await()
 
-        // Extract recognized text and keep only digits to find the meter value.
-        val readingValue = result.text.filter { it.isDigit() }
+        // Pick the counter number instead of merging every digit in the frame (serials, labels, decimals).
+        val lines = result.textBlocks.flatMap { block ->
+            block.lines.map { line -> OcrLine(line.text, line.boundingBox?.height() ?: 0) }
+        }
+        val readingValue = pickMeterNumber(lines).orEmpty()
 
         return Reading(
             value = readingValue,
