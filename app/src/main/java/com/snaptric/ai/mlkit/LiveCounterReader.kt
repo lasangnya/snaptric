@@ -27,9 +27,13 @@ class LiveCounterReader(
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private var lastRun = 0L
 
+    // True while a recognition is running; frames arriving meanwhile are skipped so work can't pile up.
+    @Volatile
+    private var busy = false
+
     override fun analyze(image: ImageProxy) {
         val now = SystemClock.elapsedRealtime()
-        if (now - lastRun < MIN_INTERVAL_MS) {
+        if (busy || now - lastRun < MIN_INTERVAL_MS) {
             image.close()
             return
         }
@@ -43,12 +47,14 @@ class LiveCounterReader(
         }
         image.close()
 
+        busy = true
         recognizer.process(InputImage.fromBitmap(cropToTarget(frame), 0))
             .addOnSuccessListener { text ->
                 val value = scanMeter(text.textBlocks.flatMap { block -> block.lines.map { it.toOcrLine() } }).value
                 onFrame(LiveFrame(value, tooDark))
             }
             .addOnFailureListener { onFrame(LiveFrame(null, tooDark)) }
+            .addOnCompleteListener { busy = false }
     }
 
     fun close() = recognizer.close()
@@ -107,4 +113,28 @@ class StableReadingDetector(private val requiredFrames: Int = 3) {
         last = null
         streak = 0
     }
+}
+
+/**
+ * Decides, frame by frame, whether auto-capture should take a photo now.
+ *
+ * It fires once the reading is steady, only while the camera is [ready] (not analysing or showing
+ * the confirmation sheet), and never twice for the same value in a row, so dismissing the sheet
+ * with the camera still on the meter doesn't immediately capture again.
+ */
+class AutoCaptureGate(private val detector: StableReadingDetector = StableReadingDetector()) {
+    private var lastCaptured: String? = null
+
+    fun shouldCapture(value: String?, ready: Boolean): Boolean {
+        if (!ready) {
+            detector.reset()
+            return false
+        }
+        val stable = detector.offer(value) ?: return false
+        if (stable == lastCaptured) return false
+        lastCaptured = stable
+        return true
+    }
+
+    fun reset() = detector.reset()
 }

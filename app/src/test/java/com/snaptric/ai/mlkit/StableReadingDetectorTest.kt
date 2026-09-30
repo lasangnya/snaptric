@@ -39,4 +39,24 @@ class StableReadingDetectorTest {
         repeat(3) { detector.offer("01262") }
         assertNull(detector.offer("01262"))
     }
+
+    @Test
+    fun `gate fires on a steady stream of identical frames`() {
+        val gate = AutoCaptureGate()
+        val fired = (1..3).map { gate.shouldCapture("01262", ready = true) }
+        assertEquals(listOf(false, false, true), fired)
+    }
+
+    @Test
+    fun `gate doesn't re-capture the same value after the sheet closes`() {
+        val gate = AutoCaptureGate()
+        repeat(3) { gate.shouldCapture("01262", ready = true) }
+        repeat(2) { gate.shouldCapture("01262", ready = false) } // sheet open
+        val again = (1..5).map { gate.shouldCapture("01262", ready = true) }
+        assertEquals(List(5) { false }, again)
+
+        // A different reading still triggers.
+        val next = (1..3).map { gate.shouldCapture("01270", ready = true) }
+        assertEquals(listOf(false, false, true), next)
+    }
 }

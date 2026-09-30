@@ -8,6 +8,8 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.Reading
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -23,20 +25,14 @@ class MlKitReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer 
      * Uses Coroutines tasks.await() to handle the asynchronous ML Kit operation.
      */
     override suspend fun analyze(bitmap: Bitmap, fullFrame: Bitmap?): Reading {
-        // Prepare the image for ML Kit.
-        val image = InputImage.fromBitmap(bitmap, 0)
-
-        // Process the image and wait for the results.
-        val result = recognizer.process(image).await()
-
-        // Pick the counter number instead of merging every digit in the frame (serials, labels, decimals).
-        val scan = scanMeter(result.textBlocks.flatMap { block -> block.lines.map { it.toOcrLine() } })
-
-        // The serial number is printed elsewhere on the faceplate, so look for it in the whole photo.
-        val serialNumber = fullFrame?.let { frame ->
-            val full = recognizer.process(InputImage.fromBitmap(frame, 0)).await()
-            scanMeter(full.textBlocks.flatMap { block -> block.lines.map { it.toOcrLine() } }).serialNumber
-        } ?: scan.serialNumber
+        // Read the counter strip and, in parallel, the whole photo (for the serial number, which is
+        // printed elsewhere on the faceplate).
+        val (scan, fullScan) = coroutineScope {
+            val strip = async { recognizer.process(InputImage.fromBitmap(bitmap, 0)).await() }
+            val full = fullFrame?.let { frame -> async { recognizer.process(InputImage.fromBitmap(frame, 0)).await() } }
+            strip.await().toMeterScan() to full?.await()?.toMeterScan()
+        }
+        val serialNumber = fullScan?.serialNumber ?: scan.serialNumber
 
         return Reading(
             value = scan.value.orEmpty(),
@@ -47,6 +43,10 @@ class MlKitReadingAnalyzer(private val context: Context) : MeterReadingAnalyzer 
         )
     }
 }
+
+/** Picks the counter, uncertain digits and serial number from a recognition result. */
+private fun Text.toMeterScan(): MeterScan =
+    scanMeter(textBlocks.flatMap { block -> block.lines.map { it.toOcrLine() } })
 
 /**
  * Converts an ML Kit line to an [OcrLine], keeping each character's confidence. The text is rebuilt
