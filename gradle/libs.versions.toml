@@ -10,9 +10,9 @@ kotlin = "2.3.21"
 composeBom = "2026.05.01"
 camerax = "1.6.1"
 mlkitText = "16.0.1"
-mediapipegenai = "0.10.35"
+litertlm = "0.17.1"
 navigationCompose = "2.9.8"
-hilt = "2.59.2"
+hilt = "2.60.1"
 hiltNavigationCompose = "1.3.0"
 room = "2.8.4"
 kotlinxCoroutines = "1.11.0"
@@ -55,8 +55,8 @@ androidx-camerax-view = { group = 'androidx.camera', name = 'camera-view', versi
 #ML Kit
 mlkit-text-recognition = { group = 'com.google.mlkit', name = 'text-recognition', version.ref ='mlkitText'}
 
-#MediaPipe GenAI (gemma)
-mediapipe-tasks-genai = { group = 'com.google.mediapipe', name = 'tasks-genai', version.ref ='mediapipegenai'}
+#LiteRT-LM (on-device Gemma)
+litertlm-android = { group = 'com.google.ai.edge.litertlm', name = 'litertlm-android', version.ref ='litertlm'}
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
 #Hilt
