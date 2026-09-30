@@ -61,6 +61,8 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    // room-testing needs kotlinx-serialization 1.8+; the test APK must match the app's version.
+    implementation(platform(libs.kotlinx.serialization.bom))
     implementation(libs.kotlinx.coroutines.play.services)
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
