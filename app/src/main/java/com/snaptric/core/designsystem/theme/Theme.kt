@@ -15,7 +15,8 @@ import androidx.compose.ui.platform.LocalContext
 // ==========================
 private val LightColorScheme = lightColorScheme(
     primary = Amber70,
-    onPrimary = Color.White,
+    // Dark text on amber: white on Amber70 is ~1.8:1 contrast, below WCAG AA.
+    onPrimary = Amber10,
     primaryContainer = Amber90,
     onPrimaryContainer = Amber10,
 
