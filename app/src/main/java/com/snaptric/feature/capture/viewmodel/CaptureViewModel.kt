@@ -56,6 +56,23 @@ class CaptureViewModel @Inject constructor(
             else meterDao.getUtilitiesForProperty(id)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // The meter chosen in the confirmation sheet; its history feeds the pre-save sanity check.
+    private val selectedUtilityId = MutableStateFlow<Long?>(null)
+
+    // Earlier readings of the selected meter.
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val selectedUtilityHistory = selectedUtilityId.flatMapLatest { id ->
+            if (id == null) flowOf(emptyList())
+            else meterDao.getReadingsForUtility(id)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Records which meter is selected in the confirmation sheet.
+     */
+    fun onUtilitySelected(id: Long?) {
+        selectedUtilityId.value = id
+    }
+
     /**
      * Updates the selected property and triggers a refresh of the utilities list.
      */
