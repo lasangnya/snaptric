@@ -52,12 +52,14 @@ class GemmaTextEngine(
     }
 
     /**
-     * Unloads the model, e.g. before its file is deleted. It loads again on next use.
+     * Unloads the model and runs [block] (e.g. deleting the file) before any other request can
+     * load it again.
      */
-    suspend fun close() {
+    suspend fun unloadThen(block: () -> Unit) {
         mutex.withLock {
             engine?.close()
             engine = null
+            block()
         }
     }
 

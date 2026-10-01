@@ -7,11 +7,12 @@ import androidx.compose.material.icons.filled.AutoMode
 import androidx.compose.material.icons.filled.FlashlightOff
 import androidx.compose.material.icons.filled.FlashlightOn
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.snaptric.ai.mlkit.LiveCounterReader
 import com.snaptric.ai.mlkit.LiveFrame
-import com.snaptric.ai.mlkit.StableReadingDetector
+import com.snaptric.ai.mlkit.AutoCaptureGate
 import java.util.concurrent.Executors
 import android.content.Intent
 import android.net.Uri
@@ -213,7 +214,7 @@ fun CaptureScreen(
     var autoCapture by rememberSaveable { mutableStateOf(true) }
     var capturing by remember { mutableStateOf(false) }
     var liveFrame by remember { mutableStateOf<LiveFrame?>(null) }
-    val stableDetector = remember { StableReadingDetector() }
+    val autoCaptureGate = remember { AutoCaptureGate() }
 
     // Takes the photo, crops it to the target strip, and sends both to the analyzer.
     fun capture() {
@@ -244,9 +245,17 @@ fun CaptureScreen(
         )
     }
 
+    // Handles every analysed preview frame. Called directly rather than through a state change,
+    // because identical consecutive frames are equal and wouldn't trigger recomposition.
+    val onLiveFrame by rememberUpdatedState { frame: LiveFrame ->
+        liveFrame = frame
+        val ready = autoCapture && !isAnalyzing && !capturing && capturedValue == null && savedReading == null
+        if (autoCaptureGate.shouldCapture(frame.value, ready)) capture()
+    }
+
     // Reads the counter from preview frames so the photo can be taken automatically once it's steady.
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
-    val liveReader = remember { LiveCounterReader(cropToTarget = ::cropToCenterStrip) { liveFrame = it } }
+    val liveReader = remember { LiveCounterReader(cropToTarget = ::cropToCenterStrip) { onLiveFrame(it) } }
     DisposableEffect(Unit) {
         onDispose {
             analysisExecutor.shutdown()
@@ -268,13 +277,6 @@ fun CaptureScreen(
 
     LaunchedEffect(torchOn, camera) { camera?.cameraControl?.enableTorch(torchOn) }
 
-    // Auto-capture: once the same reading has been seen for a few frames, take the photo.
-    LaunchedEffect(liveFrame) {
-        val stable = stableDetector.offer(liveFrame?.value)
-        if (stable != null && autoCapture && !isAnalyzing && capturedValue == null && savedReading == null) {
-            capture()
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -312,7 +314,7 @@ fun CaptureScreen(
                 checked = autoCapture,
                 onCheckedChange = {
                     autoCapture = it
-                    stableDetector.reset()
+                    autoCaptureGate.reset()
                 },
                 icon = Icons.Default.AutoMode,
                 label = if (autoCapture) "Auto on" else "Auto off"

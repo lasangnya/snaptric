@@ -103,7 +103,8 @@ fun AppNavHost(
             arguments = listOf(navArgument("utilityId") { type = NavType.LongType })
         ) {
             UtilityScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onScan = { navController.navigate("capture") }
             )
         }
         

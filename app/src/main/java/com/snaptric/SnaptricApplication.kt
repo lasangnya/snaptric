@@ -1,7 +1,9 @@
 package com.snaptric
 
 import android.app.Application
+import com.snaptric.ai.litertlm.GemmaModelDownloader
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 /**
  * The base Application class for Snaptric.
@@ -10,4 +12,14 @@ import dagger.hilt.android.HiltAndroidApp
  * application-level dependency container.
  */
 @HiltAndroidApp
-class SnaptricApplication : Application()
+class SnaptricApplication : Application() {
+
+    @Inject
+    lateinit var gemmaModelDownloader: GemmaModelDownloader
+
+    override fun onCreate() {
+        super.onCreate()
+        // Picks up a model download that finished while the app wasn't running.
+        Thread { gemmaModelDownloader.currentState() }.start()
+    }
+}

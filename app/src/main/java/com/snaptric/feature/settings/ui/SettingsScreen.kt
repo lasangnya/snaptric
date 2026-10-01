@@ -78,7 +78,13 @@ fun SettingsContent(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(SnaptricSpacing.md),
+        // Extra bottom space so the camera button never covers the last item.
+        contentPadding = PaddingValues(
+            start = SnaptricSpacing.md,
+            end = SnaptricSpacing.md,
+            top = SnaptricSpacing.md,
+            bottom = 88.dp
+        ),
         verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
     ) {
         item {
@@ -92,7 +98,9 @@ fun SettingsContent(
         item {
             SettingsSection(icon = Icons.Default.Lock, title = "Your data") {
                 Text(
-                    "${dataSummary.properties} properties, ${dataSummary.meters} meters and ${dataSummary.readings} readings, " +
+                    "${count(dataSummary.properties, "property", "properties")}, " +
+                        "${count(dataSummary.meters, "meter", "meters")} and " +
+                        "${count(dataSummary.readings, "reading", "readings")}, " +
                         "stored only on this phone. Photos are read on the device and never uploaded.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -173,6 +181,8 @@ private fun ModelSection(
         }
     }
 }
+
+private fun count(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
 
 @Composable
 private fun SettingsSection(icon: ImageVector, title: String, content: @Composable () -> Unit) {

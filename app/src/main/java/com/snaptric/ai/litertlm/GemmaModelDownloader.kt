@@ -30,8 +30,10 @@ class GemmaModelDownloader(
     private val prefs = context.getSharedPreferences("gemma_model", Context.MODE_PRIVATE)
 
     /**
-     * Looks up the current state. When a download has just finished, this moves the file into place.
+     * Looks up the current state. When a download has just finished, this moves the file into place,
+     * so it's safe (and cheap) to call from anywhere: Settings, app start, or the completion broadcast.
      */
+    @Synchronized
     fun currentState(): State {
         val id = prefs.getLong(KEY_DOWNLOAD_ID, NO_DOWNLOAD)
         if (id != NO_DOWNLOAD) {
@@ -40,11 +42,13 @@ class GemmaModelDownloader(
                     val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
                     val done = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
                     val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                    val localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
                     when (status) {
-                        DownloadManager.STATUS_SUCCESSFUL -> finishDownload()
+                        DownloadManager.STATUS_SUCCESSFUL -> finishDownload(localUri)
                         DownloadManager.STATUS_FAILED -> {
                             clearDownload(id)
-                            return State.Failed
+                            // Remembered until the next attempt, so the error stays on screen.
+                            prefs.edit { putBoolean(KEY_FAILED, true) }
                         }
                         else -> return State.Downloading(done, total)
                     }
@@ -54,13 +58,17 @@ class GemmaModelDownloader(
                 }
             }
         }
-        return locator.findModel()?.let { State.Installed(it) } ?: State.NotInstalled
+        locator.findModel()?.let { return State.Installed(it) }
+        return if (prefs.getBoolean(KEY_FAILED, false)) State.Failed else State.NotInstalled
     }
 
     /**
      * Starts downloading the default model. By default only over Wi-Fi, since it's several gigabytes.
+     * Does nothing if a download is already running.
      */
+    @Synchronized
     fun start(allowMobileData: Boolean = false) {
+        if (currentState() is State.Downloading) return
         val dir = locator.modelDir ?: return
         File(dir, TEMP_NAME).delete()
         val request = DownloadManager.Request(MODEL_URL.toUri())
@@ -70,10 +78,14 @@ class GemmaModelDownloader(
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
             .setAllowedOverMetered(allowMobileData)
             .setAllowedOverRoaming(false)
-        prefs.edit { putLong(KEY_DOWNLOAD_ID, downloadManager.enqueue(request)) }
+        prefs.edit {
+            putLong(KEY_DOWNLOAD_ID, downloadManager.enqueue(request))
+            remove(KEY_FAILED)
+        }
     }
 
     /** Cancels a running download and removes the partial file. */
+    @Synchronized
     fun cancel() {
         val id = prefs.getLong(KEY_DOWNLOAD_ID, NO_DOWNLOAD)
         if (id != NO_DOWNLOAD) clearDownload(id)
@@ -84,11 +96,12 @@ class GemmaModelDownloader(
         locator.modelDir?.listFiles { file -> file.extension == "litertlm" }?.forEach { it.delete() }
     }
 
-    private fun finishDownload() {
+    private fun finishDownload(localUri: String?) {
         prefs.edit { remove(KEY_DOWNLOAD_ID) }
         val dir = locator.modelDir ?: return
-        val temp = File(dir, TEMP_NAME)
-        if (temp.exists()) temp.renameTo(File(dir, MODEL_FILE_NAME))
+        // Use the file DownloadManager actually wrote (it may have renamed it to avoid a clash).
+        val downloaded = localUri?.toUri()?.path?.let(::File)?.takeIf { it.exists() } ?: File(dir, TEMP_NAME)
+        if (downloaded.exists()) downloaded.renameTo(File(dir, MODEL_FILE_NAME))
     }
 
     private fun clearDownload(id: Long) {
@@ -105,6 +118,7 @@ class GemmaModelDownloader(
         private const val MODEL_FILE_NAME = "gemma-4-E2B-it.litertlm"
         private const val TEMP_NAME = "$MODEL_FILE_NAME.download"
         private const val KEY_DOWNLOAD_ID = "download_id"
+        private const val KEY_FAILED = "last_download_failed"
         private const val NO_DOWNLOAD = -1L
     }
 }
