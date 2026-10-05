@@ -43,7 +43,7 @@ class MigrationTest {
             InstrumentationRegistry.getInstrumentation().targetContext,
             SnaptricDatabase::class.java,
             dbName
-        ).build()
+        ).addMigrations(MIGRATION_2_3).build()
         try {
             runBlocking {
                 val dao = db.meterDao()
