@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -58,6 +60,7 @@ import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.components.SnaptricEmptyState
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.core.domain.units.MeterUnit
 import com.snaptric.feature.properties.viewmodel.PropertyDetailViewModel
 
 /**
@@ -240,7 +243,7 @@ fun UtilityCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AddUtilityDialog(
     onDismiss: () -> Unit,
@@ -250,11 +253,7 @@ fun AddUtilityDialog(
     var selectedType by remember { mutableStateOf(UtilityType.ELECTRICITY) }
     var initialReading by remember { mutableStateOf("") }
 
-    val unitOptions = when (selectedType) {
-        UtilityType.GAS -> listOf("m³", "ft³", "kWh", "therms")
-        UtilityType.ELECTRICITY -> listOf("kWh", "Wh")
-        UtilityType.WATER -> listOf("m³", "Liters", "Gallons")
-    }
+    val unitOptions = MeterUnit.optionsFor(selectedType).map { it.symbol }
     var selectedUnit by remember { mutableStateOf(unitOptions.first()) }
 
     // Reset unit when type changes
@@ -322,7 +321,13 @@ fun AddUtilityDialog(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(
+                Text(
+                    text = if (selectedType == UtilityType.WATER) "As shown on the meter's dial"
+                    else "As shown on the meter's dial. Gas in m³ or ft³ is also shown in kWh.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)
                 ) {
