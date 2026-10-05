@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.navigation.AppNavHost
+import com.snaptric.navigation.CaptureRoute
 import com.snaptric.navigation.TopLevelDestination
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -59,10 +60,13 @@ fun AppRoot() {
     val navController = rememberNavController()
 
     // Determine the current route to update UI elements like the bottom bar or FAB visibility.
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentEntry = navController.currentBackStackEntryAsState().value
+    val currentRoute = currentEntry?.destination?.route
     AppRootContent(
         currentRoute = currentRoute,
-        onNavigate = { route -> navController.navigate(route) }
+        onNavigate = { route -> navController.navigate(route) },
+        // The camera pre-selects the property or meter of the screen it was opened from.
+        onCaptureClick = { navController.navigate(CaptureRoute.from(currentEntry)) }
     ) { innerPadding ->
         // The AppNavHost defines all the screens and their transitions.
         AppNavHost(
@@ -84,6 +88,7 @@ fun AppRoot() {
 fun AppRootContent(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
+    onCaptureClick: () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit
 ){
     // Destinations shown in the bottom navigation bar.
@@ -95,7 +100,7 @@ fun AppRootContent(
     Scaffold(
         bottomBar = {
             // Hide the bottom bar when in the 'capture' screen to maximize camera view.
-            if (currentRoute != "capture"){
+            if (!CaptureRoute.isCapture(currentRoute)){
                 NavigationBar {
                     bottomBarDestinations.forEach { destination ->
                         NavigationBarItem(
@@ -117,7 +122,7 @@ fun AppRootContent(
             // Only show the camera FAB if we are not already in the capture screen.
             AnimatedVisibility(
                 // Hidden on the camera itself and on the meter screen, which has its own "Type a reading" button.
-                visible = currentRoute != "capture" && currentRoute?.startsWith("utility_detail") != true,
+                visible = !CaptureRoute.isCapture(currentRoute) && currentRoute?.startsWith("utility_detail") != true,
                 enter = scaleIn(
                     animationSpec = tween(200)
                 ) + fadeIn(
@@ -130,7 +135,7 @@ fun AppRootContent(
                 )
             ) {
                 FloatingActionButton(
-                    onClick = { onNavigate("capture") }
+                    onClick = onCaptureClick
                 ) {
                     Icon(Icons.Default.CameraAlt, contentDescription = "capture")
                 }

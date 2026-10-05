@@ -37,6 +37,10 @@ class ConfirmReadingSheetTest {
         detectedValue: String,
         uncertainDigits: Set<Int> = emptySet(),
         meterMatch: MeterMatch? = null,
+        utilities: List<UtilityEntity> = listOf(
+            UtilityEntity(id = 1, propertyId = 1, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0)
+        ),
+        preselectedUtilityId: Long? = null,
         onSave: (Double, Long) -> Unit = { _, _ -> }
     ) {
         composeTestRule.setContent {
@@ -45,9 +49,7 @@ class ConfirmReadingSheetTest {
                     detectedValue = detectedValue,
                     properties = listOf(PropertyEntity(id = 1, name = "Home", address = null)),
                     selectedPropertyId = 1,
-                    utilities = listOf(
-                        UtilityEntity(id = 1, propertyId = 1, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0)
-                    ),
+                    utilities = utilities,
                     history = history,
                     onPropertySelected = {},
                     onUtilitySelected = {},
@@ -55,7 +57,8 @@ class ConfirmReadingSheetTest {
                     onSave = onSave,
                     capturedBitmap = null,
                     uncertainDigits = uncertainDigits,
-                    meterMatch = meterMatch
+                    meterMatch = meterMatch,
+                    preselectedUtilityId = preselectedUtilityId
                 )
             }
         }
@@ -93,5 +96,21 @@ class ConfirmReadingSheetTest {
 
         composeTestRule.onNodeWithText("Check the highlighted digit.").performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("Matched by serial number …1733").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun meterStartedFrom_isSelectedOverTheFirstMeter() {
+        val gas = UtilityEntity(id = 1, propertyId = 1, type = UtilityType.GAS, unit = "m³", initialReading = 0.0)
+        val electric = UtilityEntity(id = 2, propertyId = 1, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0)
+        var savedTo: Long? = null
+        showSheet(
+            detectedValue = "1290.4",
+            utilities = listOf(gas, electric),
+            preselectedUtilityId = 2,
+            onSave = { _, utilityId -> savedTo = utilityId }
+        )
+
+        composeTestRule.onNodeWithText("Save reading").performScrollTo().performClick()
+        assertEquals(2L, savedTo)
     }
 }

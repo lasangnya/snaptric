@@ -223,9 +223,7 @@ fun CaptureScreen(
 
     // Auto-select first property if none selected to simplify the flow.
     LaunchedEffect(properties) {
-        if (viewModel.selectedPropertyId.value == null && properties.isNotEmpty()) {
-            viewModel.onPropertySelected(properties.first().id)
-        }
+        properties.firstOrNull()?.let { viewModel.selectDefaultProperty(it.id) }
     }
 
     var camera by remember { mutableStateOf<Camera?>(null) }
@@ -414,6 +412,7 @@ fun CaptureScreen(
                 history = selectedUtilityHistory,
                 uncertainDigits = uncertainDigits,
                 meterMatch = meterMatch,
+                preselectedUtilityId = viewModel.preselectedUtilityId,
                 onPropertySelected = { viewModel.onPropertySelected(it) },
                 onUtilitySelected = { viewModel.onUtilitySelected(it) },
                 onDismiss = { viewModel.clearCapturedValue() },
@@ -659,7 +658,8 @@ fun ConfirmReadingSheet(
     onSave: (Double, Long) -> Unit,
     capturedBitmap: Bitmap?,
     uncertainDigits: Set<Int> = emptySet(),
-    meterMatch: MeterMatch? = null
+    meterMatch: MeterMatch? = null,
+    preselectedUtilityId: Long? = null
 ) {
     var editedValue by remember { mutableStateOf(detectedValue) }
     var selectedUtilityId by remember { mutableStateOf<Long?>(null) }
@@ -673,12 +673,13 @@ fun ConfirmReadingSheet(
     LaunchedEffect(selectedUtilityId) { onUtilitySelected(selectedUtilityId) }
 
     // Auto-select the first available utility (meter) for the selected property.
+    // The meter the user started from wins, then an automatic match, then the property's first meter.
     LaunchedEffect(utilities, meterMatch) {
-        val matched = meterMatch?.utility?.id?.takeIf { id -> utilities.any { it.id == id } }
-        if (matched != null && selectedUtilityId == null) {
-            selectedUtilityId = matched
+        val preferred = (preselectedUtilityId ?: meterMatch?.utility?.id)?.takeIf { id -> utilities.any { it.id == id } }
+        if (preferred != null && selectedUtilityId == null) {
+            selectedUtilityId = preferred
         } else if (selectedUtilityId == null || !utilities.any { it.id == selectedUtilityId }) {
-            selectedUtilityId = matched ?: utilities.firstOrNull()?.id
+            selectedUtilityId = preferred ?: utilities.firstOrNull()?.id
         }
     }
 

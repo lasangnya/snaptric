@@ -9,6 +9,7 @@ import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.Reading
+import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -33,7 +34,7 @@ class CaptureViewModelTest {
     private fun createViewModel(): CaptureViewModel {
         every { meterDao.getAllUtilities() } returns flowOf(emptyList())
         every { meterDao.getAllReadings() } returns flowOf(emptyList())
-        return CaptureViewModel(meterReadingAnalyzer, meterDao)
+        return CaptureViewModel(meterReadingAnalyzer, meterDao, SavedStateHandle())
     }
 
     @Test
@@ -178,5 +179,44 @@ class CaptureViewModelTest {
         advanceUntilIdle()
 
         coVerify { meterDao.insertUtility(unnamed.copy(serialNumber = "55501234")) }
+    }
+
+    @Test
+    fun `starting from a meter selects its property and ignores the default`() = runTest(mainDispatcherRule.testDispatcher) {
+        val electric = UtilityEntity(id = 7L, propertyId = 3L, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0)
+        every { meterDao.getAllUtilities() } returns flowOf(listOf(electric))
+        every { meterDao.getAllReadings() } returns flowOf(emptyList())
+
+        val viewModel = CaptureViewModel(meterReadingAnalyzer, meterDao, SavedStateHandle(mapOf("utilityId" to 7L, "propertyId" to -1L)))
+        advanceUntilIdle()
+
+        assertEquals(7L, viewModel.preselectedUtilityId)
+        assertEquals(3L, viewModel.selectedPropertyId.value)
+        viewModel.selectDefaultProperty(1L)
+        assertEquals(3L, viewModel.selectedPropertyId.value)
+    }
+
+    @Test
+    fun `an automatic match doesn't override the property the user came from`() = runTest(mainDispatcherRule.testDispatcher) {
+        val gas = UtilityEntity(id = 1L, propertyId = 9L, type = UtilityType.GAS, unit = "m³", initialReading = 0.0, serialNumber = "24200264")
+        every { meterDao.getAllUtilities() } returns flowOf(listOf(gas))
+        every { meterDao.getAllReadings() } returns flowOf(emptyList())
+        val viewModel = CaptureViewModel(meterReadingAnalyzer, meterDao, SavedStateHandle(mapOf("propertyId" to 4L)))
+        val bitmap = mockk<Bitmap>(relaxed = true)
+        coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns
+            Reading(value = "00561", timestamp = 0L, source = "MLKit", serialNumber = "24200264")
+
+        viewModel.analyzeAndShowDialog(bitmap)
+        advanceUntilIdle()
+
+        assertEquals(4L, viewModel.selectedPropertyId.value)
+    }
+
+    @Test
+    fun `without a starting point the first property becomes the default`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+        viewModel.selectDefaultProperty(2L)
+        assertEquals(2L, viewModel.selectedPropertyId.value)
+        assertNull(viewModel.preselectedUtilityId)
     }
 }

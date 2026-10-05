@@ -80,6 +80,7 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onScanClick: () -> Unit = {},
+    onScanMeterClick: (UtilityEntity) -> Unit = { onScanClick() },
     onMeterClick: (Long) -> Unit = {},
     onAddMeterClick: () -> Unit = {}
 ) {
@@ -94,6 +95,7 @@ fun HomeScreen(
         insight = insight,
         meters = meters,
         onScanClick = onScanClick,
+        onScanMeterClick = onScanMeterClick,
         onMeterClick = onMeterClick,
         onAddMeterClick = onAddMeterClick
     )
@@ -111,6 +113,7 @@ fun HomeContent(
     insight: Insight? = null,
     meters: List<MeterSummary> = emptyList(),
     onScanClick: () -> Unit = {},
+    onScanMeterClick: (UtilityEntity) -> Unit = { onScanClick() },
     onMeterClick: (Long) -> Unit = {},
     onAddMeterClick: () -> Unit = {}
 ) {
@@ -178,7 +181,7 @@ fun HomeContent(
                                     meter = meter,
                                     showProperty = properties.size > 1,
                                     onClick = { onMeterClick(meter.utility.id) },
-                                    onScanClick = onScanClick
+                                    onScanClick = { onScanMeterClick(meter.utility) }
                                 )
                             }
                             item(key = "add") { AddMeterCard(onClick = onAddMeterClick) }

@@ -1,6 +1,7 @@
 package com.snaptric.feature.capture.viewmodel
 
 import android.graphics.Bitmap
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
@@ -28,8 +29,18 @@ import javax.inject.Inject
 @HiltViewModel
 class CaptureViewModel @Inject constructor(
     private val meterReadingAnalyzer: MeterReadingAnalyzer,
-    private val meterDao: MeterDao
+    private val meterDao: MeterDao,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    /**
+     * The meter the user started scanning from (e.g. its card on Home or its own screen), if any.
+     * It's pre-selected in the confirmation sheet and wins over automatic matching.
+     */
+    val preselectedUtilityId: Long? = savedStateHandle.get<Long>(ARG_UTILITY_ID)?.takeIf { it > 0 }
+
+    // The property the user started from, if any; otherwise the pre-selected meter's property.
+    private val preselectedPropertyId: Long? = savedStateHandle.get<Long>(ARG_PROPERTY_ID)?.takeIf { it > 0 }
 
     // The bitmap captured from the camera, used for display in the confirmation dialog.
     private val _capturedBitmap = MutableStateFlow<Bitmap?>(null)
@@ -62,7 +73,24 @@ class CaptureViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Tracks the user-selected property ID.
-    val selectedPropertyId = MutableStateFlow<Long?>(null)
+    val selectedPropertyId = MutableStateFlow(preselectedPropertyId)
+
+    init {
+        if (preselectedUtilityId != null && preselectedPropertyId == null) {
+            viewModelScope.launch {
+                meterDao.getAllUtilities().first().firstOrNull { it.id == preselectedUtilityId }?.let {
+                    selectedPropertyId.value = it.propertyId
+                }
+            }
+        }
+    }
+
+    /**
+     * Selects [id] as the default property, unless the user came from a specific property or meter.
+     */
+    fun selectDefaultProperty(id: Long) {
+        if (selectedPropertyId.value == null && preselectedUtilityId == null) selectedPropertyId.value = id
+    }
 
     // Observable list of utilities (meters) filtered by the selected property.
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -115,7 +143,10 @@ class CaptureViewModel @Inject constructor(
                     readings = meterDao.getAllReadings().first()
                 )
                 _meterMatch.value = match
-                match?.let { selectedPropertyId.value = it.utility.propertyId }
+                // Where the user started from wins over automatic matching.
+                if (preselectedUtilityId == null && preselectedPropertyId == null) {
+                    match?.let { selectedPropertyId.value = it.utility.propertyId }
+                }
                 _capturedValue.value = reading.value
             } finally {
                 _isAnalyzing.value = false
@@ -152,4 +183,9 @@ class CaptureViewModel @Inject constructor(
      * Clears the current captured value to dismiss the confirmation dialog.
      */
     fun clearCapturedValue(){_capturedValue.value = null}
+
+    companion object {
+        const val ARG_UTILITY_ID = "utilityId"
+        const val ARG_PROPERTY_ID = "propertyId"
+    }
 }
