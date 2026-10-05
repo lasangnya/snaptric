@@ -41,18 +41,16 @@ class LiveCounterReader(
 
         val tooDark = averageLuma(image) < DARK_LUMA
         val rotation = image.imageInfo.rotationDegrees
-        val frame = image.toBitmap().let { raw ->
+        val frame = image.toBitmap().visiblePart(image.cropRect).let { raw ->
             if (rotation == 0) raw
             else Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, Matrix().apply { postRotate(rotation.toFloat()) }, true)
         }
         image.close()
 
+        val target = cropToTarget(frame)
         busy = true
-        recognizer.process(InputImage.fromBitmap(cropToTarget(frame), 0))
-            .addOnSuccessListener { text ->
-                val value = scanMeter(text.textBlocks.flatMap { block -> block.lines.map { it.toOcrLine() } }).value
-                onFrame(LiveFrame(value, tooDark))
-            }
+        recognizer.process(InputImage.fromBitmap(target, 0))
+            .addOnSuccessListener { text -> onFrame(LiveFrame(text.toMeterScan(target).value, tooDark)) }
             .addOnFailureListener { onFrame(LiveFrame(null, tooDark)) }
             .addOnCompleteListener { busy = false }
     }
@@ -137,4 +135,19 @@ class AutoCaptureGate(private val detector: StableReadingDetector = StableReadin
     }
 
     fun reset() = detector.reset()
+}
+
+/**
+ * The part of a camera frame that was visible on screen. CameraX reports it as the crop rect
+ * when the use cases share the preview's view port; [ImageProxy.toBitmap] doesn't apply it.
+ */
+fun Bitmap.visiblePart(cropRect: android.graphics.Rect): Bitmap {
+    if (cropRect.width() >= width && cropRect.height() >= height) return this
+    val left = cropRect.left.coerceIn(0, width - 1)
+    val top = cropRect.top.coerceIn(0, height - 1)
+    return Bitmap.createBitmap(
+        this, left, top,
+        cropRect.width().coerceAtMost(width - left),
+        cropRect.height().coerceAtMost(height - top)
+    )
 }

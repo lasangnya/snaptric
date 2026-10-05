@@ -45,4 +45,12 @@ class MeterMatchTest {
         assertNull(matchMeter(null, null, meters, readings))
         assertNull(matchMeter(null, 900.0, listOf(gas), readings)) // only one meter
     }
+
+    @Test
+    fun `serials match on their last digits despite OCR noise`() {
+        assertEquals(true, sameSerial("0024200264", "024200264"))
+        assertEquals(true, sameSerial("7 HTL00 2420 0264", "0024200264"))
+        assertEquals(false, sameSerial("0024200264", "0024200265"))
+        assertEquals(false, sameSerial("123", "123"))
+    }
 }

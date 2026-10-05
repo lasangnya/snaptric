@@ -24,7 +24,7 @@ fun matchMeter(
     readings: List<ReadingEntity>
 ): MeterMatch? {
     if (serialNumber != null) {
-        utilities.firstOrNull { it.serialNumber == serialNumber }?.let {
+        utilities.firstOrNull { sameSerial(it.serialNumber, serialNumber) }?.let {
             return MeterMatch(it, MeterMatch.Reason.SERIAL_NUMBER)
         }
     }
@@ -38,4 +38,18 @@ fun matchMeter(
         .filter { (_, gap) -> gap >= 0 }
         .minByOrNull { (_, gap) -> gap }
         ?.let { (utility, _) -> MeterMatch(utility, MeterMatch.Reason.CLOSEST_READING) }
+}
+
+/** Digits a serial is matched on. Prefixes and letters are often misread, so only the tail counts. */
+private const val SERIAL_MATCH_DIGITS = 8
+private const val MIN_SERIAL_MATCH_DIGITS = 6
+
+/**
+ * Whether two serial numbers read from photos belong to the same meter. OCR often garbles letters
+ * and the first characters (e.g. "7 HTLO0 2420 0264" vs "024200264"), so only the last digits count.
+ */
+fun sameSerial(a: String?, b: String?): Boolean {
+    val tailA = a?.filter(Char::isDigit)?.takeLast(SERIAL_MATCH_DIGITS) ?: return false
+    val tailB = b?.filter(Char::isDigit)?.takeLast(SERIAL_MATCH_DIGITS) ?: return false
+    return tailA.length >= MIN_SERIAL_MATCH_DIGITS && tailA == tailB
 }

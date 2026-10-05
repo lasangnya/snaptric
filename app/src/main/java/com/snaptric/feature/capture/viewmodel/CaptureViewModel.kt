@@ -8,6 +8,7 @@ import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.insights.MeterMatch
 import com.snaptric.core.domain.insights.matchMeter
+import com.snaptric.core.domain.insights.sameSerial
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -139,7 +140,7 @@ class CaptureViewModel @Inject constructor(
             capturedSerial?.let { serial ->
                 val meters = meterDao.getAllUtilities().first()
                 val meter = meters.firstOrNull { it.id == utilityId }
-                if (meter != null && meter.serialNumber == null && meters.none { it.serialNumber == serial }) {
+                if (meter != null && meter.serialNumber == null && meters.none { sameSerial(it.serialNumber, serial) }) {
                     meterDao.insertUtility(meter.copy(serialNumber = serial))
                 }
             }

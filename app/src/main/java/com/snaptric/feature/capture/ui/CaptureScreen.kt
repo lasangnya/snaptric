@@ -1,6 +1,11 @@
 package com.snaptric.feature.capture.ui
 
 import android.Manifest
+import android.util.Size
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.camera.core.Camera
 import androidx.camera.core.ImageAnalysis
 import androidx.compose.material.icons.filled.AutoMode
@@ -12,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.snaptric.ai.mlkit.LiveCounterReader
 import com.snaptric.ai.mlkit.LiveFrame
+import com.snaptric.ai.mlkit.visiblePart
 import com.snaptric.ai.mlkit.AutoCaptureGate
 import java.util.concurrent.Executors
 import android.content.Intent
@@ -146,7 +152,20 @@ fun CaptureScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val imageCapture = remember { ImageCapture.Builder().build() }
+    // Photos are capped near 1920 px: plenty for the counter, and much faster to read than full
+    // sensor resolution.
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setResolutionStrategy(
+                        ResolutionStrategy(Size(1920, 1440), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)
+                    )
+                    .build()
+            )
+            .build()
+    }
     val previewView = remember { PreviewView(context) }
 
     val isAnalyzing by viewModel.isAnalyzing.collectAsState()
@@ -226,7 +245,7 @@ fun CaptureScreen(
                 override fun onCaptureSuccess(image: ImageProxy) {
                     // Rotate to match what the user sees, then keep only the area inside the overlay.
                     val rotationDegrees = image.imageInfo.rotationDegrees
-                    val rawBitmap = image.toBitmap()
+                    val rawBitmap = image.toBitmap().visiblePart(image.cropRect)
                     val rotatedBitmap = if (rotationDegrees != 0) {
                         val matrix = android.graphics.Matrix().apply { postRotate(rotationDegrees.toFloat()) }
                         Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
@@ -271,8 +290,20 @@ fun CaptureScreen(
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also { it.setAnalyzer(analysisExecutor, liveReader) }
+        // Share the preview's view port so photos are cropped to exactly what's on screen, and the
+        // target strip in the photo lines up with the box drawn over the preview.
+        val viewPort = withTimeoutOrNull(2_000) {
+            while (previewView.viewPort == null) delay(50)
+            previewView.viewPort
+        }
+        val useCases = UseCaseGroup.Builder()
+            .addUseCase(preview)
+            .addUseCase(imageCapture)
+            .addUseCase(analysis)
+            .apply { viewPort?.let(::setViewPort) }
+            .build()
         cameraProvider.unbindAll()
-        camera = cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture, analysis)
+        camera = cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, useCases)
     }
 
     LaunchedEffect(torchOn, camera) { camera?.cameraControl?.enableTorch(torchOn) }
