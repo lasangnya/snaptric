@@ -2,6 +2,7 @@ package com.snaptric.core.database.di
 
 import android.content.Context
 import androidx.room.Room
+import com.snaptric.core.database.MIGRATION_2_3
 import com.snaptric.core.database.SnaptricDatabase
 import dagger.Module
 import dagger.Provides
@@ -27,7 +28,9 @@ object DatabaseModule {
             context,
             SnaptricDatabase::class.java,
             "snaptric_database"
-        ).build()
+        )
+            .addMigrations(MIGRATION_2_3)
+            .build()
     }
 
     /**
