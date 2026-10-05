@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.domain.MeterReadingAnalyzer
+import com.snaptric.core.domain.Reading
 import com.snaptric.core.domain.insights.MeterMatch
 import com.snaptric.core.domain.insights.matchMeter
 import com.snaptric.core.domain.insights.sameSerial
@@ -132,26 +133,40 @@ class CaptureViewModel @Inject constructor(
         viewModelScope.launch {
             _isAnalyzing.value = true
             try {
-                val reading = meterReadingAnalyzer.analyze(bitmap, fullFrame)
-                capturedSource = reading.source
-                capturedSerial = reading.serialNumber
-                _uncertainDigits.value = reading.uncertainDigits
-                val match = matchMeter(
-                    serialNumber = reading.serialNumber,
-                    value = reading.value?.toDoubleOrNull(),
-                    utilities = meterDao.getAllUtilities().first(),
-                    readings = meterDao.getAllReadings().first()
-                )
-                _meterMatch.value = match
-                // Where the user started from wins over automatic matching.
-                if (preselectedUtilityId == null && preselectedPropertyId == null) {
-                    match?.let { selectedPropertyId.value = it.utility.propertyId }
-                }
-                _capturedValue.value = reading.value
+                present(meterReadingAnalyzer.analyze(bitmap, fullFrame))
             } finally {
                 _isAnalyzing.value = false
             }
         }
+    }
+
+    /**
+     * Opens the confirmation sheet straight from the viewfinder's steady reading, without taking
+     * and re-reading a photo. This is what makes auto-capture feel instant.
+     */
+    fun acceptLiveReading(value: String, image: Bitmap) {
+        _capturedBitmap.value = image
+        viewModelScope.launch {
+            present(Reading(value = value, timestamp = System.currentTimeMillis(), source = "MLKit"))
+        }
+    }
+
+    private suspend fun present(reading: Reading) {
+        capturedSource = reading.source
+        capturedSerial = reading.serialNumber
+        _uncertainDigits.value = reading.uncertainDigits
+        val match = matchMeter(
+            serialNumber = reading.serialNumber,
+            value = reading.value?.toDoubleOrNull(),
+            utilities = meterDao.getAllUtilities().first(),
+            readings = meterDao.getAllReadings().first()
+        )
+        _meterMatch.value = match
+        // Where the user started from wins over automatic matching.
+        if (preselectedUtilityId == null && preselectedPropertyId == null) {
+            match?.let { selectedPropertyId.value = it.utility.propertyId }
+        }
+        _capturedValue.value = reading.value
     }
 
     /**

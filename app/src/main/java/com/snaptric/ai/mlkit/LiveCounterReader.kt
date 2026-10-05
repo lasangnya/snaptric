@@ -13,7 +13,11 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
  * What the viewfinder currently sees: the counter digits in the target strip, and whether the
  * scene is too dark to read reliably.
  */
-data class LiveFrame(val value: String?, val tooDark: Boolean)
+data class LiveFrame(val value: String?, val tooDark: Boolean, val image: Bitmap? = null) {
+    // Frames are compared by what was read, not by the image.
+    override fun equals(other: Any?) = other is LiveFrame && other.value == value && other.tooDark == tooDark
+    override fun hashCode() = 31 * (value?.hashCode() ?: 0) + tooDark.hashCode()
+}
 
 /**
  * Reads the counter from camera preview frames (a CameraX [ImageAnalysis.Analyzer]).
@@ -50,7 +54,7 @@ class LiveCounterReader(
         val target = cropToTarget(frame)
         busy = true
         recognizer.process(InputImage.fromBitmap(target, 0))
-            .addOnSuccessListener { text -> onFrame(LiveFrame(text.toMeterScan(target).value, tooDark)) }
+            .addOnSuccessListener { text -> onFrame(LiveFrame(text.toMeterScan(target).value, tooDark, target)) }
             .addOnFailureListener { onFrame(LiveFrame(null, tooDark)) }
             .addOnCompleteListener { busy = false }
     }
@@ -75,7 +79,7 @@ class LiveCounterReader(
     }
 
     private companion object {
-        const val MIN_INTERVAL_MS = 400L
+        const val MIN_INTERVAL_MS = 250L
         const val DARK_LUMA = 60
         const val LUMA_STEP = 97 // sample, don't read every byte
     }
@@ -84,7 +88,7 @@ class LiveCounterReader(
 /**
  * Decides when the viewfinder has seen the same counter reading long enough to capture.
  */
-class StableReadingDetector(private val requiredFrames: Int = 3) {
+class StableReadingDetector(private val requiredFrames: Int = 2) {
     private var last: String? = null
     private var streak = 0
 

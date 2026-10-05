@@ -183,7 +183,7 @@ fun CaptureScreen(
     var savedReading by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(savedReading) {
         if (savedReading != null) {
-            delay(1200)
+            delay(700)
             onClose()
         }
     }
@@ -267,7 +267,12 @@ fun CaptureScreen(
     val onLiveFrame by rememberUpdatedState { frame: LiveFrame ->
         liveFrame = frame
         val ready = autoCapture && !isAnalyzing && !capturing && capturedValue == null && savedReading == null
-        if (autoCaptureGate.shouldCapture(frame.value, ready)) capture()
+        if (autoCaptureGate.shouldCapture(frame.value, ready)) {
+            // Use the steady live frame directly: no photo, no second read.
+            val value = frame.value
+            val image = frame.image
+            if (value != null && image != null) viewModel.acceptLiveReading(value, image) else capture()
+        }
     }
 
     // Reads the counter from preview frames so the photo can be taken automatically once it's steady.
