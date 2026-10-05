@@ -1,5 +1,6 @@
 package com.snaptric.core.domain.insights
 
+import com.snaptric.core.domain.tariff.formatMoney
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.abs
@@ -33,7 +34,12 @@ fun recapFacts(recaps: List<MeterRecap>, locale: Locale = Locale.getDefault()): 
         val previousName = recap.month.minusMonths(1).month.getDisplayName(TextStyle.FULL, locale)
         buildString {
             append("${recap.meterLabel()}: ${formatAmount(recap.usedSoFar)} $unit used so far in $monthName.")
-            recap.forecast?.let { append(" On track for about ${formatAmount(it)} $unit.") }
+            recap.cost?.let { append(" That's about ${formatMoney(it.total, it.currency)} including standing charges.") }
+            recap.forecast?.let { forecast ->
+                append(" On track for about ${formatAmount(forecast)} $unit")
+                recap.forecastCost?.let { append(" (about ${formatMoney(it.total, it.currency)})") }
+                append(".")
+            }
             val change = recap.changePercent
             val lastMonth = recap.lastMonth
             if (change != null && lastMonth != null) {

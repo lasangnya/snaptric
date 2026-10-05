@@ -32,6 +32,7 @@ class HomeViewModelTest {
 
         every { meterDao.getAllProperties() } returns flowOf(listOf(property1, property2))
         every { meterDao.getAllUtilities() } returns flowOf(emptyList())
+        every { meterDao.getAllTariffs() } returns flowOf(emptyList())
         every { meterDao.getAllReadings() } returns flowOf(emptyList())
 
         val viewModel = createViewModel()
@@ -47,6 +48,7 @@ class HomeViewModelTest {
     fun `properties emits empty list when dao returns empty`() = runTest(mainDispatcherRule.testDispatcher) {
         every { meterDao.getAllProperties() } returns flowOf(emptyList())
         every { meterDao.getAllUtilities() } returns flowOf(emptyList())
+        every { meterDao.getAllTariffs() } returns flowOf(emptyList())
         every { meterDao.getAllReadings() } returns flowOf(emptyList())
 
         val viewModel = createViewModel()
@@ -63,6 +65,7 @@ class HomeViewModelTest {
 
         every { meterDao.getAllProperties() } returns flowOf(emptyList())
         every { meterDao.getAllUtilities() } returns flowOf(emptyList())
+        every { meterDao.getAllTariffs() } returns flowOf(emptyList())
         every { meterDao.getAllReadings() } returns flowOf(listOf(reading1))
 
         val viewModel = createViewModel()

@@ -2,6 +2,7 @@ package com.snaptric.core.domain.insights
 
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import org.junit.Assert.assertEquals
@@ -130,5 +131,33 @@ class MeterRecapTest {
         assertEquals(300.0, usage.getValue(java.time.YearMonth.of(2026, 9)), 0.001)
         assertEquals(60.0, usage.getValue(java.time.YearMonth.of(2026, 10)), 0.001)
         assertEquals(listOf(java.time.YearMonth.of(2026, 9), java.time.YearMonth.of(2026, 10)), usage.keys.toList())
+    }
+
+    @Test
+    fun `costs use the tariff in force at the latest reading`() {
+        val old = TariffEntity(utilityId = 1, unitRate = 0.10, billingUnit = "kWh", standingChargePerDay = 1.0, currency = "GBP",
+            effectiveFrom = LocalDate.parse("2026-01-01").atStartOfDay(zone).toInstant().toEpochMilli())
+        val current = old.copy(unitRate = 0.25, standingChargePerDay = 0.5,
+            effectiveFrom = LocalDate.parse("2026-10-01").atStartOfDay(zone).toInstant().toEpochMilli())
+        val recap = buildMeterRecaps(
+            listOf(reading("2026-08-31", 1000.0), reading("2026-09-30", 1250.0), reading("2026-10-10", 1350.0)),
+            listOf(electricity), listOf(home), LocalDate.parse("2026-10-12"), zone, tariffs = listOf(old, current)
+        ).single()
+
+        // 100 kWh × £0.25 + 10 days × £0.50
+        assertEquals(30.0, recap.cost!!.total, 0.001)
+        // 310 kWh × £0.25 + 31 days × £0.50
+        assertEquals(93.0, recap.forecastCost!!.total, 0.001)
+        assertEquals(
+            "Electricity at Home: 100 kWh used so far in October. That's about £30.00 including standing charges. " +
+                "On track for about 310 kWh (about £93.00). That's 24% more than September (250 kWh).",
+            recapFacts(listOf(recap), Locale.ENGLISH).single()
+        )
+    }
+
+    @Test
+    fun `no tariff means no cost`() {
+        val recap = recaps(listOf(reading("2026-09-30", 1250.0), reading("2026-10-10", 1350.0)), today = "2026-10-12").single()
+        assertNull(recap.cost)
     }
 }
