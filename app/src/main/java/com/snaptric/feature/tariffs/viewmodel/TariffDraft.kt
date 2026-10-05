@@ -5,6 +5,7 @@ import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.domain.tariff.BillTextParser
 import com.snaptric.core.domain.tariff.ParsedBill
 import com.snaptric.core.domain.tariff.billingUnitsFor
+import com.snaptric.core.domain.tariff.isKnownCurrency
 import com.snaptric.core.domain.units.MeterUnit
 import java.time.LocalDate
 import java.time.ZoneId
@@ -37,7 +38,7 @@ data class TariffDraft(
     val calorificValueValue: Double? get() = BillTextParser.parseNumber(calorificValue.trim())
     val volumeCorrectionValue: Double? get() = BillTextParser.parseNumber(volumeCorrection.trim())
 
-    val currencyValid: Boolean get() = currency.trim().length == 3 && currency.trim().all { it.isLetter() }
+    val currencyValid: Boolean get() = isKnownCurrency(currency.trim())
     val calorificValueValid: Boolean get() = calorificValue.isBlank() || calorificValueValue?.let { it in 20.0..60.0 } == true
     val volumeCorrectionValid: Boolean get() = volumeCorrection.isBlank() || volumeCorrectionValue?.let { it in 0.8..1.2 } == true
 

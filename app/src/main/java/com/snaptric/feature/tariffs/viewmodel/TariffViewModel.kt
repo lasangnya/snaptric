@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.snaptric.core.data.CurrencyPreference
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
@@ -21,8 +22,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.util.Currency
-import java.util.Locale
 import javax.inject.Inject
 
 /** Progress of reading a bill photo. */
@@ -41,6 +40,7 @@ sealed interface BillScanState {
 class TariffViewModel @Inject constructor(
     private val meterDao: MeterDao,
     private val billTextReader: BillTextReader,
+    private val currencyPreference: CurrencyPreference,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -126,15 +126,10 @@ class TariffViewModel @Inject constructor(
         }
     }
 
-    /** A blank tariff in the currency of the meter's latest tariff, or the phone's currency. */
-    private suspend fun newDraft(): TariffDraft {
-        val currency = tariffs.value.firstOrNull()?.currency ?: localCurrency()
-        return TariffDraft.blank(meterType(), currency, LocalDate.now())
-    }
+    /** A blank tariff in the currency chosen in Settings. */
+    private suspend fun newDraft(): TariffDraft =
+        TariffDraft.blank(meterType(), currencyPreference.currency.value, LocalDate.now())
 
     private suspend fun meterType(): UtilityType =
         (utility.value ?: meterDao.getUtility(utilityId).first())?.type ?: UtilityType.ELECTRICITY
-
-    private fun localCurrency(): String =
-        runCatching { Currency.getInstance(Locale.getDefault()).currencyCode }.getOrNull() ?: "GBP"
 }

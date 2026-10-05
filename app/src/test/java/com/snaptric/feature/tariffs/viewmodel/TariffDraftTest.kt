@@ -68,4 +68,12 @@ class TariffDraftTest {
         assertEquals("kWh", draft.billingUnit)
         assertFalse(TariffField.BILLING_UNIT in draft.fromBill)
     }
+
+    @Test
+    fun unknownCurrency_blocksSaving() {
+        val draft = blank.copy(unitRate = "0.06", standingCharge = "0.3")
+        assertTrue(draft.isValid)
+        assertTrue(draft.copy(currency = "LKR").isValid)
+        assertFalse(draft.copy(currency = "XYZ").isValid)
+    }
 }

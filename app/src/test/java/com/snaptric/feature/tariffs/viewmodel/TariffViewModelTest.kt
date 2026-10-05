@@ -3,6 +3,7 @@ package com.snaptric.feature.tariffs.viewmodel
 import android.graphics.Bitmap
 import androidx.lifecycle.SavedStateHandle
 import com.snaptric.MainDispatcherRule
+import com.snaptric.core.data.CurrencyPreference
 import com.snaptric.core.database.dao.MeterDao
 import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
@@ -14,6 +15,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -33,6 +35,10 @@ class TariffViewModelTest {
 
     private val meterDao: MeterDao = mockk(relaxed = true)
     private val reader: BillTextReader = mockk()
+    private val currencyPreference = object : CurrencyPreference {
+        override val currency = MutableStateFlow("EUR")
+        override fun set(code: String) { currency.value = code }
+    }
     private val gas = UtilityEntity(id = 5, propertyId = 1, type = UtilityType.GAS, unit = "m³", initialReading = 0.0)
 
     @Before
@@ -41,7 +47,7 @@ class TariffViewModelTest {
         every { meterDao.getTariffsForUtility(5) } returns flowOf(emptyList())
     }
 
-    private fun viewModel() = TariffViewModel(meterDao, reader, SavedStateHandle(mapOf("utilityId" to 5L)))
+    private fun viewModel() = TariffViewModel(meterDao, reader, currencyPreference, SavedStateHandle(mapOf("utilityId" to 5L)))
 
     @Test
     fun scannedBill_opensReviewAndSavesOnlyWhenConfirmed() = runTest(mainDispatcherRule.testDispatcher) {
@@ -94,5 +100,27 @@ class TariffViewModelTest {
         advanceUntilIdle()
 
         assertTrue(vm.scanState.value is BillScanState.Failed)
+    }
+
+    @Test
+    fun manualTariff_startsInTheSettingsCurrency() = runTest(mainDispatcherRule.testDispatcher) {
+        val vm = viewModel()
+        currencyPreference.set("LKR")
+
+        vm.enterManually()
+        advanceUntilIdle()
+
+        assertEquals("LKR", vm.draft.value!!.currency)
+    }
+
+    @Test
+    fun scannedBill_currencyOverridesTheSetting() = runTest(mainDispatcherRule.testDispatcher) {
+        coEvery { reader.read(any<Bitmap>()) } returns "Unit rate 6.24p/kWh"
+        val vm = viewModel()
+
+        vm.readBill(mockk<Bitmap>())
+        advanceUntilIdle()
+
+        assertEquals("GBP", vm.draft.value!!.currency)
     }
 }

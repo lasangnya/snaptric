@@ -84,6 +84,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
+import com.snaptric.core.designsystem.components.CurrencyPicker
 import com.snaptric.core.designsystem.components.SnaptricBadge
 import com.snaptric.core.designsystem.components.SnaptricCard
 import com.snaptric.core.designsystem.components.label
@@ -428,15 +429,17 @@ private fun TariffForm(
             draft = draft,
             isError = draft.standingCharge.isNotBlank() && draft.standingChargeValue == null
         )
-        OutlinedTextField(
-            value = draft.currency,
-            onValueChange = { v -> onChange { it.copy(currency = v.take(3).uppercase()) } },
-            label = { Text("Currency") },
-            supportingText = { Text(reviewNote(draft, TariffField.CURRENCY) ?: "Three-letter code, e.g. GBP or EUR") },
-            isError = !draft.currencyValid,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+        Column {
+            CurrencyPicker(selected = draft.currency, onSelect = { code -> onChange { it.copy(currency = code) } })
+            reviewNote(draft, TariffField.CURRENCY, flagMissing = false)?.let { note ->
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (TariffField.CURRENCY in draft.fromBill) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = SnaptricSpacing.md, top = SnaptricSpacing.xs)
+                )
+            }
+        }
 
         if (type == UtilityType.GAS) {
             Text(

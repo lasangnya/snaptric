@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snaptric.ai.litertlm.GemmaModelDownloader
 import com.snaptric.ai.litertlm.GemmaTextEngine
+import com.snaptric.core.data.CurrencyPreference
 import com.snaptric.core.database.dao.MeterDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -29,8 +30,14 @@ data class DataSummary(val properties: Int, val meters: Int, val readings: Int)
 class SettingsViewModel @Inject constructor(
     meterDao: MeterDao,
     private val downloader: GemmaModelDownloader,
-    private val gemma: GemmaTextEngine
+    private val gemma: GemmaTextEngine,
+    private val currencyPreference: CurrencyPreference
 ) : ViewModel() {
+
+    /** The currency new tariffs start in. */
+    val currency: StateFlow<String> = currencyPreference.currency
+
+    fun setCurrency(code: String) = currencyPreference.set(code)
 
     /**
      * The model's install state, refreshed every second while the screen is visible so download

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.ai.litertlm.GemmaModelDownloader
 import com.snaptric.ai.litertlm.GemmaModelDownloader.State
+import com.snaptric.core.designsystem.components.CurrencyPicker
 import com.snaptric.core.designsystem.components.SnaptricCard
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
@@ -52,6 +54,7 @@ import com.snaptric.feature.settings.viewmodel.SettingsViewModel
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val modelState by viewModel.modelState.collectAsState()
     val dataSummary by viewModel.dataSummary.collectAsState()
+    val currency by viewModel.currency.collectAsState()
     val context = LocalContext.current
     val versionName = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull()
@@ -61,6 +64,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         modelState = modelState,
         dataSummary = dataSummary,
         versionName = versionName,
+        currency = currency,
+        onCurrencyChange = viewModel::setCurrency,
         onDownloadModel = viewModel::downloadModel,
         onCancelDownload = viewModel::cancelDownload,
         onDeleteModel = viewModel::deleteModel
@@ -72,6 +77,8 @@ fun SettingsContent(
     modelState: State,
     dataSummary: DataSummary,
     versionName: String?,
+    currency: String = "GBP",
+    onCurrencyChange: (String) -> Unit = {},
     onDownloadModel: (allowMobileData: Boolean) -> Unit = {},
     onCancelDownload: () -> Unit = {},
     onDeleteModel: () -> Unit = {}
@@ -93,6 +100,17 @@ fun SettingsContent(
                 style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.padding(top = SnaptricSpacing.sm, bottom = SnaptricSpacing.xs)
             )
+        }
+        item {
+            SettingsSection(icon = Icons.Default.Payments, title = "Currency") {
+                Text(
+                    "Used for new tariffs and costs. Each tariff can still have its own currency; " +
+                        "amounts already entered aren't converted.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                CurrencyPicker(selected = currency, onSelect = onCurrencyChange, label = "Default")
+            }
         }
         item { ModelSection(modelState, onDownloadModel, onCancelDownload, onDeleteModel) }
         item {
