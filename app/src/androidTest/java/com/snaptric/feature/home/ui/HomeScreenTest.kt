@@ -14,6 +14,7 @@ import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.feature.home.viewmodel.buildHomeReadingItems
+import com.snaptric.feature.home.viewmodel.buildMeterSummaries
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -89,20 +90,41 @@ class HomeScreenTest {
     }
 
     @Test
-    fun dashboard_showsStatsAndRecentActivity() {
+    fun dashboard_showsMetersAndRecentActivity() {
         composeTestRule.setContent {
             SnaptricTheme {
                 HomeContent(
                     properties = properties,
-                    readingItems = buildHomeReadingItems(readings, utilities, properties)
+                    readingItems = buildHomeReadingItems(readings, utilities, properties),
+                    meters = buildMeterSummaries(readings, utilities, properties)
                 )
             }
         }
 
-        composeTestRule.onNodeWithText("Properties").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Readings").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Your meters").assertIsDisplayed()
         composeTestRule.onNodeWithText("Recent Activity").assertIsDisplayed()
         // The older reading is listed under Recent Activity.
         composeTestRule.onNodeWithText("1200").assertIsDisplayed()
+    }
+
+    @Test
+    fun meterWithoutReadings_isShownWithAWayToReadIt() {
+        val gas = UtilityEntity(id = 2, propertyId = 1, type = UtilityType.GAS, unit = "m³", initialReading = 0.0)
+        var scanClicked = false
+        composeTestRule.setContent {
+            SnaptricTheme {
+                HomeContent(
+                    properties = properties,
+                    readingItems = buildHomeReadingItems(readings, utilities + gas, properties),
+                    meters = buildMeterSummaries(readings, utilities + gas, properties),
+                    onScanClick = { scanClicked = true }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Gas").assertIsDisplayed()
+        composeTestRule.onNodeWithText("No readings yet").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Take first reading").performClick()
+        assertTrue(scanClicked)
     }
 }

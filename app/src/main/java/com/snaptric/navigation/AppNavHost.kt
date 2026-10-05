@@ -73,7 +73,12 @@ fun AppNavHost(
         // Home Screen: Dashboard summary.
         composable(TopLevelDestination.Home.route){
             val viewModel : HomeViewModel = hiltViewModel()
-            HomeScreen(viewModel, onScanClick = { navController.navigate("capture") })
+            HomeScreen(
+                viewModel,
+                onScanClick = { navController.navigate("capture") },
+                onMeterClick = { utilityId -> navController.navigate("utility_detail/$utilityId") },
+                onAddMeterClick = { navController.navigate(TopLevelDestination.Properties.route) }
+            )
         }
         
         // Properties Screen: List of properties.

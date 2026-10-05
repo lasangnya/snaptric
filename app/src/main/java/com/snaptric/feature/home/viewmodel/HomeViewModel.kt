@@ -42,6 +42,16 @@ class HomeViewModel @Inject constructor(
     /**
      * Readings joined with their meter and property, newest first, with per-meter deltas.
      */
+    /**
+     * Every meter, including ones with no readings yet, for the "Your meters" row.
+     */
+    val meters = combine(
+        meterDao.getAllReadings(),
+        meterDao.getAllUtilities(),
+        meterDao.getAllProperties(),
+        ::buildMeterSummaries
+    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val readingItems = combine(
         meterDao.getAllReadings(),
         meterDao.getAllUtilities(),

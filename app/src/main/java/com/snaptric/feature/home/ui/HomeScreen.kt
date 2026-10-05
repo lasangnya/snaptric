@@ -14,10 +14,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.TextButton
+import com.snaptric.core.designsystem.components.formatMeterValue
+import com.snaptric.feature.home.viewmodel.MeterSummary
+import com.snaptric.feature.home.viewmodel.READING_DUE_AFTER_DAYS
+import com.snaptric.feature.home.viewmodel.daysSince
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -71,17 +79,23 @@ import java.util.Locale
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
-    onScanClick: () -> Unit = {}
+    onScanClick: () -> Unit = {},
+    onMeterClick: (Long) -> Unit = {},
+    onAddMeterClick: () -> Unit = {}
 ) {
     val properties by viewModel.properties.collectAsState()
     val readingItems by viewModel.readingItems.collectAsState()
     val insight by viewModel.insight.collectAsState()
+    val meters by viewModel.meters.collectAsState()
 
     HomeContent(
         properties = properties,
         readingItems = readingItems,
         insight = insight,
-        onScanClick = onScanClick
+        meters = meters,
+        onScanClick = onScanClick,
+        onMeterClick = onMeterClick,
+        onAddMeterClick = onAddMeterClick
     )
 }
 
@@ -95,7 +109,10 @@ fun HomeContent(
     readingItems: List<HomeReadingItem>,
     modifier: Modifier = Modifier,
     insight: Insight? = null,
-    onScanClick: () -> Unit = {}
+    meters: List<MeterSummary> = emptyList(),
+    onScanClick: () -> Unit = {},
+    onMeterClick: (Long) -> Unit = {},
+    onAddMeterClick: () -> Unit = {}
 ) {
     // Determine the appropriate greeting based on the current time of day.
     val greeting = remember { getGreeting() }
@@ -149,22 +166,24 @@ fun HomeContent(
             }
         }
 
-        item {
-            EntranceAnimation(delayMillis = 160) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
-                ) {
-                    QuickStat(
-                        value = properties.size.toString(),
-                        label = "Properties",
-                        modifier = Modifier.weight(1f)
-                    )
-                    QuickStat(
-                        value = readingItems.size.toString(),
-                        label = "Readings",
-                        modifier = Modifier.weight(1f)
-                    )
+        // Every meter, so one without readings yet still shows up, with a way to read it.
+        if (meters.isNotEmpty()) {
+            item {
+                EntranceAnimation(delayMillis = 160) {
+                    Column(verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                        SnaptricSectionHeader(title = "Your meters")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                            items(meters, key = { it.utility.id }) { meter ->
+                                MeterCard(
+                                    meter = meter,
+                                    showProperty = properties.size > 1,
+                                    onClick = { onMeterClick(meter.utility.id) },
+                                    onScanClick = onScanClick
+                                )
+                            }
+                            item(key = "add") { AddMeterCard(onClick = onAddMeterClick) }
+                        }
+                    }
                 }
             }
         }
@@ -362,24 +381,118 @@ private fun InsightCard(insight: Insight) {
 }
 
 /**
- * A compact stat tile where the value, not the label, carries the emphasis.
+ * One meter in the "Your meters" row: its latest value and how long ago it was read, or a prompt
+ * to take its first reading. Meters not read for a month are flagged as due.
  */
 @Composable
-private fun QuickStat(value: String, label: String, modifier: Modifier = Modifier) {
-    SnaptricCard(modifier = modifier) {
-        Column(modifier = Modifier.padding(SnaptricSpacing.md)) {
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall.tabularNumbers,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+private fun MeterCard(
+    meter: MeterSummary,
+    showProperty: Boolean,
+    onClick: () -> Unit,
+    onScanClick: () -> Unit
+) {
+    val utility = meter.utility
+    val latest = meter.latest
+    val days = latest?.let { daysSince(it.timestamp) }
+    val due = days != null && days >= READING_DUE_AFTER_DAYS
+
+    SnaptricCard(modifier = Modifier.width(196.dp).heightIn(min = METER_CARD_MIN_HEIGHT), onClick = onClick) {
+        Column(
+            modifier = Modifier.padding(SnaptricSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                UtilityIconBadge(type = utility.type, size = 32.dp)
+                Spacer(modifier = Modifier.width(SnaptricSpacing.sm))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = utility.name?.takeIf { it.isNotBlank() } ?: utility.type.label,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (showProperty && meter.propertyName != null) {
+                        Text(
+                            text = meter.propertyName,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(SnaptricSpacing.xs))
+            if (latest != null) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = formatMeterValue(latest.value),
+                        style = MaterialTheme.typography.titleLarge.tabularNumbers,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = " ${utility.unit}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 3.dp)
+                    )
+                }
+                Text(
+                    text = if (due) "Due · read ${readAgo(days!!)}" else "Read ${readAgo(days!!)}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (due) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = "No readings yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = onScanClick,
+                    contentPadding = PaddingValues(horizontal = 0.dp)
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(SnaptricSpacing.xs))
+                    Text("Take first reading")
+                }
+            }
         }
     }
+}
+
+/**
+ * The last card in the row, leading to where meters are added.
+ */
+@Composable
+private fun AddMeterCard(onClick: () -> Unit) {
+    SnaptricCard(modifier = Modifier.width(132.dp).heightIn(min = METER_CARD_MIN_HEIGHT), onClick = onClick) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = METER_CARD_MIN_HEIGHT)
+                .padding(SnaptricSpacing.md),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs, Alignment.CenterVertically)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+            Text("Add a meter", style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+/** Same height for every card in the row, whether or not the meter has a reading. */
+private val METER_CARD_MIN_HEIGHT = 140.dp
+
+private fun readAgo(days: Long): String = when (days) {
+    0L -> "today"
+    1L -> "yesterday"
+    else -> "$days days ago"
 }
 
 /**
