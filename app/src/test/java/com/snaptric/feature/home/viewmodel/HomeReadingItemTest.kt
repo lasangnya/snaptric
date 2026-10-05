@@ -58,4 +58,28 @@ class HomeReadingItemTest {
         assertNull(item.utility)
         assertNull(item.propertyName)
     }
+
+    @Test
+    fun `meter summaries include meters without readings, grouped by property`() {
+        val office = PropertyEntity(id = 2, name = "Apartment", address = null)
+        val officeGas = UtilityEntity(id = 5, propertyId = 2, type = UtilityType.GAS, unit = "m³", initialReading = 0.0)
+        val summaries = buildMeterSummaries(
+            readings = listOf(reading(1, 1, 100.0, 1_000), reading(2, 1, 110.0, 2_000)),
+            utilities = listOf(water, electricity, officeGas),
+            properties = properties + office
+        )
+
+        assertEquals(listOf(5L, 1L, 2L), summaries.map { it.utility.id }) // Apartment first; then electricity before water
+        assertEquals(2L, summaries[1].latest?.id)
+        assertNull(summaries[2].latest)
+    }
+
+    @Test
+    fun `days since counts calendar days`() {
+        val zone = java.time.ZoneOffset.UTC
+        val now = java.time.LocalDateTime.of(2026, 10, 5, 0, 30).toInstant(zone).toEpochMilli()
+        val lateYesterday = java.time.LocalDateTime.of(2026, 10, 4, 23, 50).toInstant(zone).toEpochMilli()
+        assertEquals(0L, daysSince(now, now, zone))
+        assertEquals(1L, daysSince(lateYesterday, now, zone))
+    }
 }

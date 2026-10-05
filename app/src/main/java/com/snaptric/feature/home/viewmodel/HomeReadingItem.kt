@@ -44,3 +44,41 @@ fun buildHomeReadingItems(
         )
     }
 }
+
+/**
+ * One meter for the "Your meters" row on Home, including meters that have no readings yet.
+ *
+ * @property latest The meter's newest reading, or null if it has never been read.
+ */
+data class MeterSummary(
+    val utility: UtilityEntity,
+    val propertyName: String?,
+    val latest: ReadingEntity?
+)
+
+/**
+ * Every meter with its newest reading, grouped by property (in name order), then by utility type.
+ */
+fun buildMeterSummaries(
+    readings: List<ReadingEntity>,
+    utilities: List<UtilityEntity>,
+    properties: List<PropertyEntity>
+): List<MeterSummary> {
+    val propertyNamesById = properties.associate { it.id to it.name }
+    val latestByMeter = readings.groupBy { it.utilityId }.mapValues { (_, list) -> list.maxBy { it.timestamp } }
+    return utilities
+        .map { MeterSummary(it, propertyNamesById[it.propertyId], latestByMeter[it.id]) }
+        .sortedWith(compareBy({ it.propertyName.orEmpty().lowercase() }, { it.utility.type.ordinal }, { it.utility.name.orEmpty() }))
+}
+
+/** Days after which a meter is shown as due for a new reading. */
+const val READING_DUE_AFTER_DAYS = 31
+
+/**
+ * Whole days since [timestamp], counted in calendar days in [zone].
+ */
+fun daysSince(timestamp: Long, now: Long = System.currentTimeMillis(), zone: java.time.ZoneId = java.time.ZoneId.systemDefault()): Long {
+    val then = java.time.Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()
+    val today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
+    return java.time.temporal.ChronoUnit.DAYS.between(then, today).coerceAtLeast(0)
+}

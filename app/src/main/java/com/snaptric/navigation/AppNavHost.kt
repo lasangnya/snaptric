@@ -15,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.snaptric.feature.capture.ui.CaptureScreen
+import com.snaptric.feature.capture.viewmodel.CaptureViewModel
 import com.snaptric.feature.home.ui.HomeScreen
 import com.snaptric.feature.home.viewmodel.HomeViewModel
 import com.snaptric.feature.properties.ui.PropertiesScreen
@@ -73,7 +74,13 @@ fun AppNavHost(
         // Home Screen: Dashboard summary.
         composable(TopLevelDestination.Home.route){
             val viewModel : HomeViewModel = hiltViewModel()
-            HomeScreen(viewModel, onScanClick = { navController.navigate("capture") })
+            HomeScreen(
+                viewModel,
+                onScanClick = { navController.navigate(CaptureRoute.to()) },
+                onScanMeterClick = { meter -> navController.navigate(CaptureRoute.to(meter.propertyId, meter.id)) },
+                onMeterClick = { utilityId -> navController.navigate("utility_detail/$utilityId") },
+                onAddMeterClick = { navController.navigate(TopLevelDestination.Properties.route) }
+            )
         }
         
         // Properties Screen: List of properties.
@@ -104,7 +111,7 @@ fun AppNavHost(
         ) {
             UtilityScreen(
                 onBack = { navController.popBackStack() },
-                onScan = { navController.navigate("capture") }
+                onScan = { navController.navigate(CaptureRoute.from(navController.currentBackStackEntry)) }
             )
         }
         
@@ -114,7 +121,13 @@ fun AppNavHost(
         }
         
         // Capture Screen: The camera-based meter scanning interface.
-        composable("capture") {
+        composable(
+            route = CaptureRoute.PATTERN,
+            arguments = listOf(
+                navArgument(CaptureViewModel.ARG_PROPERTY_ID) { type = NavType.LongType; defaultValue = CaptureRoute.NONE },
+                navArgument(CaptureViewModel.ARG_UTILITY_ID) { type = NavType.LongType; defaultValue = CaptureRoute.NONE }
+            )
+        ) {
             CaptureScreen(
                 onClose = { navController.popBackStack() }
             ) }

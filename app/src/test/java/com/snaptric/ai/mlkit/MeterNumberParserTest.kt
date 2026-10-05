@@ -88,4 +88,42 @@ class MeterNumberParserTest {
         val line = OcrLine("01262", height = 60, charConfidences = List(5) { 0f })
         assertEquals(emptySet<Int>(), scanMeter(listOf(line)).uncertainDigits)
     }
+
+    // OCR output from a real gas meter photo (00561 m³ + red 207): the gaps between number wheels
+    // come back as ',', ':' and '.', and mid-roll red wheels as letters.
+
+    @Test
+    fun `gaps between number wheels are not taken for decimal points`() {
+        assertEquals("0056120", pickMeterNumber(listOf(OcrLine("0 0,5:6:120E-", height = 110))))
+        assertEquals("005613230", pickMeterNumber(listOf(OcrLine("00,5:6:13230-", height = 90))))
+        assertEquals("0056120", pickMeterNumber(listOf(OcrLine("0 0.5.6, 12,0", height = 100))))
+    }
+
+    @Test
+    fun `red wheels become the decimal places`() {
+        val text = "0 0,5:6:120E-"
+        // Each character's centre; the red section starts at x = 600 (the '2').
+        val centers = listOf(80f, 120f, 160f, 200f, 240f, 280f, 320f, 360f, 400f, 620f, 680f, 740f, 780f)
+        val line = OcrLine(text, height = 110, charCenters = centers, decimalFromX = 600f)
+        assertEquals("00561.20", pickMeterNumber(listOf(line)))
+    }
+
+    @Test
+    fun `counter wins over labels and the serial on a gas meter faceplate`() {
+        val scan = scanMeter(
+            listOf(
+                OcrLine("EN 1359.2017 M2/E2", height = 27),
+                OcrLine("0 0,5.6,1, 23,0E", height = 113),
+                OcrLine("7 HTLO0 2420 0264", height = 52),
+                OcrLine("Ihre Unterlagen leicht ablösbar. Für Rückfragen (T 0421 359-1212)", height = 51)
+            )
+        )
+        assertEquals("00561230", scan.value)
+        assertEquals("024200264", scan.serialNumber) // "HTLO0": the letter O is dropped; matching uses the tail
+    }
+
+    @Test
+    fun `a single decimal comma is still a decimal`() {
+        assertEquals("1262.4", pickMeterNumber(listOf(OcrLine("1262,4 m3", height = 60))))
+    }
 }
