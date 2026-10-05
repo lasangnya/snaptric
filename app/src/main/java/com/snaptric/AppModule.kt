@@ -5,7 +5,9 @@ import com.snaptric.ai.insights.GemmaInsightWriter
 import com.snaptric.ai.litertlm.GemmaModelDownloader
 import com.snaptric.ai.litertlm.GemmaModelLocator
 import com.snaptric.ai.litertlm.GemmaTextEngine
+import com.snaptric.ai.mlkit.MlKitBillTextReader
 import com.snaptric.ai.mlkit.MlKitReadingAnalyzer
+import com.snaptric.core.domain.tariff.BillTextReader
 import com.snaptric.core.domain.insights.InsightWriter
 import com.snaptric.core.domain.insights.TemplateInsightWriter
 import com.snaptric.core.domain.MeterReadingAnalyzer
@@ -35,6 +37,15 @@ object AppModule{
     @Singleton
     fun provideMeterReadingAnalyzer(@ApplicationContext context: Context) : MeterReadingAnalyzer{
         return MlKitReadingAnalyzer(context)
+    }
+
+    /**
+     * Provides the on-device text reader used to scan tariffs from bills.
+     */
+    @Provides
+    @Singleton
+    fun provideBillTextReader(@ApplicationContext context: Context) : BillTextReader{
+        return MlKitBillTextReader(context)
     }
 
     /**
