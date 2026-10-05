@@ -22,6 +22,7 @@ import com.snaptric.feature.properties.ui.PropertiesScreen
 import com.snaptric.feature.properties.ui.PropertyDetailScreen
 import com.snaptric.feature.properties.ui.UtilityScreen
 import com.snaptric.feature.settings.ui.SettingsScreen
+import com.snaptric.feature.tariffs.ui.TariffScreen
 import com.snaptric.feature.properties.viewmodel.PropertyViewModel
 
 /**
@@ -111,8 +112,17 @@ fun AppNavHost(
         ) {
             UtilityScreen(
                 onBack = { navController.popBackStack() },
-                onScan = { navController.navigate(CaptureRoute.from(navController.currentBackStackEntry)) }
+                onScan = { navController.navigate(CaptureRoute.from(navController.currentBackStackEntry)) },
+                onTariffs = { utilityId -> navController.navigate("tariffs/$utilityId") }
             )
+        }
+
+        // Tariffs: rates for a meter, entered by hand or scanned from a bill.
+        composable(
+            route = "tariffs/{utilityId}",
+            arguments = listOf(navArgument("utilityId") { type = NavType.LongType })
+        ) {
+            TariffScreen(onBack = { navController.popBackStack() })
         }
         
         // Settings Screen: App preferences.
