@@ -67,9 +67,10 @@ class HomeViewModel @Inject constructor(
     val insight: StateFlow<Insight?> = combine(
         meterDao.getAllReadings(),
         meterDao.getAllUtilities(),
-        meterDao.getAllProperties()
-    ) { readings, utilities, properties ->
-        buildMeterRecaps(readings, utilities, properties, LocalDate.now())
+        meterDao.getAllProperties(),
+        meterDao.getAllTariffs()
+    ) { readings, utilities, properties, tariffs ->
+        buildMeterRecaps(readings, utilities, properties, LocalDate.now(), tariffs = tariffs)
     }
         .distinctUntilChanged()
         .mapLatest { recaps -> if (recaps.isEmpty()) null else insightWriter.write(recaps) }

@@ -2,7 +2,11 @@ package com.snaptric.core.domain.insights
 
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
+import com.snaptric.core.domain.tariff.CostEstimate
+import com.snaptric.core.domain.tariff.activeAt
+import com.snaptric.core.domain.tariff.estimateCost
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -18,6 +22,9 @@ import kotlin.math.roundToInt
  * @property forecast Projected usage for the whole month, or null when there is too little data
  *   or the month is already complete.
  * @property lastMonth Usage in the previous month, or null when it isn't known.
+ * @property cost What [usedSoFar] costs, with standing charge up to [lastReadingDate], or null
+ *   when the meter has no tariff (or its units don't match the tariff's).
+ * @property forecastCost What [forecast] would cost for the whole month, or null.
  */
 data class MeterRecap(
     val utility: UtilityEntity,
@@ -26,7 +33,9 @@ data class MeterRecap(
     val usedSoFar: Double,
     val lastReadingDate: LocalDate,
     val forecast: Double?,
-    val lastMonth: Double?
+    val lastMonth: Double?,
+    val cost: CostEstimate? = null,
+    val forecastCost: CostEstimate? = null
 ) {
     /** Forecast compared with last month, as a whole percentage (positive means more), or null. */
     val changePercent: Int?
@@ -64,17 +73,20 @@ fun monthlyUsage(readings: List<ReadingEntity>, zone: ZoneId = ZoneId.systemDefa
  * Usage between two consecutive readings is counted in the month of the later reading. Drops in
  * value (a reset meter or a typo) are ignored rather than counted as negative usage. The forecast
  * extends the daily rate over the days left in the month; a finished month has no forecast.
+ * Costs use the tariff in force at the latest reading.
  */
 fun buildMeterRecaps(
     readings: List<ReadingEntity>,
     utilities: List<UtilityEntity>,
     properties: List<PropertyEntity>,
     today: LocalDate,
-    zone: ZoneId = ZoneId.systemDefault()
+    zone: ZoneId = ZoneId.systemDefault(),
+    tariffs: List<TariffEntity> = emptyList()
 ): List<MeterRecap> {
     val month = YearMonth.from(today)
     val propertyNames = properties.associate { it.id to it.name }
     val readingsByMeter = readings.groupBy { it.utilityId }
+    val tariffsByMeter = tariffs.groupBy { it.utilityId }
 
     return utilities.mapNotNull { utility ->
         val sorted = readingsByMeter[utility.id].orEmpty().sortedBy { it.timestamp }
@@ -102,6 +114,8 @@ fun buildMeterRecaps(
             null
         }
 
+        val tariff = tariffsByMeter[utility.id].orEmpty().activeAt(latest.timestamp)
+
         MeterRecap(
             utility = utility,
             propertyName = propertyNames[utility.propertyId],
@@ -109,7 +123,11 @@ fun buildMeterRecaps(
             usedSoFar = usedSoFar,
             lastReadingDate = lastDate,
             forecast = forecast,
-            lastMonth = usageByMonth[month.minusMonths(1)]
+            lastMonth = usageByMonth[month.minusMonths(1)],
+            cost = tariff?.let { estimateCost(usedSoFar, utility.unit, utility.type, it, lastDate.dayOfMonth) },
+            forecastCost = tariff?.let { t ->
+                forecast?.let { estimateCost(it, utility.unit, utility.type, t, month.lengthOfMonth()) }
+            }
         )
     }
 }

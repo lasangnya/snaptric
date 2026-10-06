@@ -15,9 +15,11 @@ import com.snaptric.core.database.dao.MeterDao
     entities = [
         com.snaptric.core.database.entity.PropertyEntity::class,
         com.snaptric.core.database.entity.UtilityEntity::class,
-        com.snaptric.core.database.entity.ReadingEntity::class
+        com.snaptric.core.database.entity.ReadingEntity::class,
+        com.snaptric.core.database.entity.TariffEntity::class
     ],
-    version = 2,
+    // v3: tariffs table and canonical meter units; see [MIGRATION_2_3].
+    version = 3,
     exportSchema = true,
     autoMigrations = [
         // v2: UtilityEntity.serialNumber (nullable, so existing meters simply have none yet).

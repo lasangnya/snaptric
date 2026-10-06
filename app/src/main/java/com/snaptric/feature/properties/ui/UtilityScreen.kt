@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,11 +25,13 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +60,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.components.SnaptricCard
@@ -67,8 +72,18 @@ import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.core.designsystem.theme.tabularNumbers
+import com.snaptric.core.designsystem.components.SnaptricBadge
+import com.snaptric.core.domain.insights.MeterRecap
 import com.snaptric.core.domain.insights.formatAmount
 import com.snaptric.core.domain.insights.monthlyUsage
+import com.snaptric.core.domain.tariff.activeAt
+import com.snaptric.core.domain.tariff.formatMoney
+import com.snaptric.core.domain.tariff.formatRate
+import com.snaptric.core.domain.tariff.gasFactors
+import com.snaptric.core.domain.units.GasFactors
+import com.snaptric.core.domain.units.MeterUnit
+import com.snaptric.core.domain.units.dualUsage
+import com.snaptric.core.domain.units.formatQuantity
 import com.snaptric.feature.properties.viewmodel.UtilityViewModel
 import java.text.SimpleDateFormat
 import java.time.format.TextStyle
@@ -82,14 +97,20 @@ import java.util.Date
 fun UtilityScreen(
     viewModel: UtilityViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onScan: () -> Unit = {}
+    onScan: () -> Unit = {},
+    onTariffs: (Long) -> Unit = {}
 ) {
     val readings by viewModel.readings.collectAsState()
     val utility by viewModel.utility.collectAsState()
+    val tariffs by viewModel.tariffs.collectAsState()
+    val thisMonth by viewModel.thisMonth.collectAsState()
     UtilityDetailContent(
         readings = readings,
         onBack = onBack,
         utility = utility,
+        currentTariff = tariffs.activeAt(System.currentTimeMillis()),
+        thisMonth = thisMonth,
+        onTariffs = { utility?.let { onTariffs(it.id) } },
         onAddReading = viewModel::addManualReading,
         onEditReading = viewModel::updateReading,
         onDeleteReading = viewModel::deleteReading,
@@ -126,10 +147,14 @@ fun UtilityDetailContent(
     onDeleteReading: (ReadingEntity) -> Unit = {},
     onEditUtility: (UtilityEntity) -> Unit = {},
     onDeleteUtility: () -> Unit = {},
-    onScan: () -> Unit = {}
+    onScan: () -> Unit = {},
+    currentTariff: TariffEntity? = null,
+    thisMonth: MeterRecap? = null,
+    onTariffs: () -> Unit = {}
 ) {
     var dialog by remember { mutableStateOf<UtilityDialog?>(null) }
     val unit = utility?.unit.orEmpty()
+    val gasFactors = currentTariff?.gasFactors ?: GasFactors()
 
     Scaffold(
         topBar = {
@@ -145,6 +170,9 @@ fun UtilityDetailContent(
                         Icon(Icons.Default.CameraAlt, contentDescription = "Scan this meter")
                     }
                     if (utility != null) {
+                        IconButton(onClick = onTariffs) {
+                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = "Tariff")
+                        }
                         IconButton(onClick = { dialog = UtilityDialog.EditMeter }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit meter")
                         }
@@ -193,6 +221,18 @@ fun UtilityDetailContent(
                 ),
                 verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)
             ) {
+                if (utility != null) {
+                    item {
+                        ThisMonthCard(
+                            utility = utility,
+                            thisMonth = thisMonth,
+                            tariff = currentTariff,
+                            gasFactors = gasFactors,
+                            onTariffs = onTariffs
+                        )
+                    }
+                }
+
                 item {
                     ReadingBarChart(
                         readings = readings,
@@ -210,6 +250,8 @@ fun UtilityDetailContent(
                         reading = reading,
                         gap = gap,
                         unit = unit,
+                        type = utility?.type,
+                        gasFactors = gasFactors,
                         onClick = { dialog = UtilityDialog.EditReading(reading) },
                         modifier = Modifier.animateItem()
                     )
@@ -329,6 +371,7 @@ private fun ReadingValueDialog(
 /**
  * Edit a meter's name, unit and starting value.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun EditMeterDialog(
     utility: UtilityEntity,
@@ -353,13 +396,18 @@ private fun EditMeterDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = unit,
-                    onValueChange = { unit = it },
-                    label = { Text("Unit") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                Text(
+                    text = "Unit on the meter's dial",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                // Readings are kept as read; changing the unit changes how they're labelled and converted.
+                val options = MeterUnit.optionsFor(utility.type).map { it.symbol }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                    (options + listOf(utility.unit).filter { it.isNotBlank() && it !in options }).forEach { option ->
+                        FilterChip(selected = unit == option, onClick = { unit = option }, label = { Text(option) })
+                    }
+                }
                 OutlinedTextField(
                     value = initial,
                     onValueChange = { initial = it.replace(',', '.') },
@@ -385,6 +433,83 @@ private fun EditMeterDialog(
             ) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+/**
+ * This month's usage in the meter's unit and in kWh where they differ, what it costs under the
+ * current tariff, and a way to add or change the tariff.
+ */
+@Composable
+private fun ThisMonthCard(
+    utility: UtilityEntity,
+    thisMonth: MeterRecap?,
+    tariff: TariffEntity?,
+    gasFactors: GasFactors,
+    onTariffs: () -> Unit
+) {
+    SnaptricCard {
+        Column(
+            modifier = Modifier.padding(SnaptricSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)
+        ) {
+            Text("This month", style = MaterialTheme.typography.titleSmall)
+            if (thisMonth == null) {
+                Text(
+                    text = "No usage recorded this month yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                val usage = dualUsage(thisMonth.usedSoFar, utility.unit, utility.type, gasFactors)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                    Text(usage.text(), style = MaterialTheme.typography.headlineSmall.tabularNumbers)
+                    if (usage.estimated) EstimatedBadge()
+                }
+                thisMonth.cost?.let { cost ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(SnaptricSpacing.sm)) {
+                        Text(
+                            text = "≈ ${formatMoney(cost.total, cost.currency)} so far, incl. standing charge",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        if (cost.estimated && !usage.estimated) EstimatedBadge()
+                    }
+                }
+                thisMonth.forecastCost?.let { forecast ->
+                    Text(
+                        text = "On track for about ${formatMoney(forecast.total, forecast.currency)} this month",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            if (tariff != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${formatRate(tariff.unitRate, tariff.currency, tariff.billingUnit)} + " +
+                            formatRate(tariff.standingChargePerDay, tariff.currency, "day"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = onTariffs) { Text("Tariff") }
+                }
+            } else {
+                TextButton(onClick = onTariffs, contentPadding = PaddingValues(0.dp)) {
+                    Text("Add your tariff to see costs")
+                }
+            }
+        }
+    }
+}
+
+/** Marks a figure worked out with a typical calorific value rather than the one on the bill. */
+@Composable
+private fun EstimatedBadge() {
+    SnaptricBadge(
+        text = "estimated",
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
     )
 }
 
@@ -500,6 +625,8 @@ fun ReadingHistoryItem(
     gap: Double?,
     modifier: Modifier = Modifier,
     unit: String = "",
+    type: UtilityType? = null,
+    gasFactors: GasFactors = GasFactors(),
     onClick: (() -> Unit)? = null
 ) {
     val locale = LocalConfiguration.current.locales[0]
@@ -540,12 +667,22 @@ fun ReadingHistoryItem(
                 }
             }
             if (gap != null) {
-                Text(
-                    text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap)) +
-                        if (unit.isBlank()) "" else " $unit",
-                    style = MaterialTheme.typography.labelMedium.tabularNumbers,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                val energy = type?.let { dualUsage(kotlin.math.abs(gap), unit, it, gasFactors).energyKwh }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap)) +
+                            if (unit.isBlank()) "" else " $unit",
+                        style = MaterialTheme.typography.labelMedium.tabularNumbers,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (energy != null) {
+                        Text(
+                            text = "≈ ${formatQuantity(energy)} kWh",
+                            style = MaterialTheme.typography.labelSmall.tabularNumbers,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -95,4 +96,25 @@ interface MeterDao {
      */
     @Query("SELECT * FROM properties WHERE id = :propertyId")
     fun getProperty(propertyId: Long): Flow<PropertyEntity?>
+
+    /**
+     * Adds or updates a tariff for a meter.
+     */
+    @Upsert
+    suspend fun insertTariff(tariff: TariffEntity): Long
+
+    /**
+     * A meter's tariffs, newest first.
+     */
+    @Query("SELECT * FROM tariffs WHERE utilityId = :utilityId ORDER BY effectiveFrom DESC")
+    fun getTariffsForUtility(utilityId: Long): Flow<List<TariffEntity>>
+
+    /**
+     * Every tariff across all meters.
+     */
+    @Query("SELECT * FROM tariffs")
+    fun getAllTariffs(): Flow<List<TariffEntity>>
+
+    @Query("DELETE FROM tariffs WHERE id = :tariffId")
+    suspend fun deleteTariff(tariffId: Long)
 }
