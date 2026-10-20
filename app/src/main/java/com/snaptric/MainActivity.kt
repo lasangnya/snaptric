@@ -121,8 +121,11 @@ fun AppRootContent(
         floatingActionButton = {
             // Only show the camera FAB if we are not already in the capture screen.
             AnimatedVisibility(
-                // Hidden on the camera itself and on the meter screen, which has its own "Type a reading" button.
-                visible = !CaptureRoute.isCapture(currentRoute) && currentRoute?.startsWith("utility_detail") != true,
+                // Hidden on the camera itself, on the meter screen, which has its own "Type a reading" button,
+                // and on the tariff form, where it would cover the Save button.
+                visible = !CaptureRoute.isCapture(currentRoute) &&
+                    currentRoute?.startsWith("utility_detail") != true &&
+                    currentRoute?.startsWith("tariffs") != true,
                 enter = scaleIn(
                     animationSpec = tween(200)
                 ) + fadeIn(
