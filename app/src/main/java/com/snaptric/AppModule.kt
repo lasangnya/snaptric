@@ -2,6 +2,7 @@ package com.snaptric
 
 import android.content.Context
 import com.snaptric.ai.insights.GemmaInsightWriter
+import com.snaptric.ai.insights.GemmaUsageExplainer
 import com.snaptric.ai.litertlm.GemmaModelDownloader
 import com.snaptric.ai.litertlm.GemmaModelLocator
 import com.snaptric.ai.litertlm.GemmaTextEngine
@@ -12,6 +13,8 @@ import com.snaptric.core.data.CurrencyPreference
 import com.snaptric.core.data.SharedPrefsCurrencyPreference
 import com.snaptric.core.domain.insights.InsightWriter
 import com.snaptric.core.domain.insights.TemplateInsightWriter
+import com.snaptric.core.domain.insights.TemplateUsageExplainer
+import com.snaptric.core.domain.insights.UsageExplainer
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import dagger.Module
 import dagger.Provides
@@ -94,6 +97,16 @@ object AppModule{
     @Singleton
     fun provideInsightWriter(gemma: GemmaTextEngine) : InsightWriter{
         return GemmaInsightWriter(gemma::generate, TemplateInsightWriter())
+    }
+
+    /**
+     * Provides the line shown after saving a reading: Gemma phrases the calculated comparison with
+     * the meter's average when a model is installed, otherwise the built-in template is used.
+     */
+    @Provides
+    @Singleton
+    fun provideUsageExplainer(gemma: GemmaTextEngine) : UsageExplainer{
+        return GemmaUsageExplainer(gemma::generate, TemplateUsageExplainer())
     }
 
     /**
