@@ -9,6 +9,8 @@ import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.Reading
+import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.domain.insights.TemplateUsageExplainer
 import androidx.lifecycle.SavedStateHandle
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -34,7 +36,8 @@ class CaptureViewModelTest {
     private fun createViewModel(): CaptureViewModel {
         every { meterDao.getAllUtilities() } returns flowOf(emptyList())
         every { meterDao.getAllReadings() } returns flowOf(emptyList())
-        return CaptureViewModel(meterReadingAnalyzer, meterDao, SavedStateHandle())
+        every { meterDao.getReadingsForUtility(any()) } returns flowOf(emptyList())
+        return CaptureViewModel(meterReadingAnalyzer, meterDao, TemplateUsageExplainer(), SavedStateHandle())
     }
 
     @Test
@@ -187,7 +190,7 @@ class CaptureViewModelTest {
         every { meterDao.getAllUtilities() } returns flowOf(listOf(electric))
         every { meterDao.getAllReadings() } returns flowOf(emptyList())
 
-        val viewModel = CaptureViewModel(meterReadingAnalyzer, meterDao, SavedStateHandle(mapOf("utilityId" to 7L, "propertyId" to -1L)))
+        val viewModel = CaptureViewModel(meterReadingAnalyzer, meterDao, TemplateUsageExplainer(), SavedStateHandle(mapOf("utilityId" to 7L, "propertyId" to -1L)))
         advanceUntilIdle()
 
         assertEquals(7L, viewModel.preselectedUtilityId)
@@ -201,7 +204,7 @@ class CaptureViewModelTest {
         val gas = UtilityEntity(id = 1L, propertyId = 9L, type = UtilityType.GAS, unit = "m³", initialReading = 0.0, serialNumber = "24200264")
         every { meterDao.getAllUtilities() } returns flowOf(listOf(gas))
         every { meterDao.getAllReadings() } returns flowOf(emptyList())
-        val viewModel = CaptureViewModel(meterReadingAnalyzer, meterDao, SavedStateHandle(mapOf("propertyId" to 4L)))
+        val viewModel = CaptureViewModel(meterReadingAnalyzer, meterDao, TemplateUsageExplainer(), SavedStateHandle(mapOf("propertyId" to 4L)))
         val bitmap = mockk<Bitmap>(relaxed = true)
         coEvery { meterReadingAnalyzer.analyze(bitmap, null) } returns
             Reading(value = "00561", timestamp = 0L, source = "MLKit", serialNumber = "24200264")
@@ -218,5 +221,38 @@ class CaptureViewModelTest {
         viewModel.selectDefaultProperty(2L)
         assertEquals(2L, viewModel.selectedPropertyId.value)
         assertNull(viewModel.preselectedUtilityId)
+    }
+
+    @Test
+    fun `saving explains usage against the meter's average`() = runTest(mainDispatcherRule.testDispatcher) {
+        val day = 24L * 60 * 60 * 1000
+        val now = System.currentTimeMillis()
+        val electric = UtilityEntity(id = 5L, propertyId = 1L, type = UtilityType.ELECTRICITY, unit = "kWh", initialReading = 0.0)
+        val viewModel = createViewModel()
+        every { meterDao.getAllUtilities() } returns flowOf(listOf(electric))
+        // 10 kWh a day for 30 days, then the last reading 2 days ago.
+        every { meterDao.getReadingsForUtility(5L) } returns flowOf(
+            listOf(
+                ReadingEntity(utilityId = 5L, value = 400.0, timestamp = now - 2 * day, source = "MLKit"),
+                ReadingEntity(utilityId = 5L, value = 100.0, timestamp = now - 32 * day, source = "MLKit")
+            )
+        )
+
+        viewModel.saveReading(440.0, utilityId = 5L)
+        advanceUntilIdle()
+
+        val outcome = viewModel.saveOutcome.value as SaveOutcome.Saved
+        assertEquals(100, outcome.comparison?.changePercent)
+        assertEquals("20 kWh a day since the last reading, 100% more than usual (your 3-month average is 10 kWh a day).", outcome.explanation?.text)
+    }
+
+    @Test
+    fun `saving the first reading has nothing to compare`() = runTest(mainDispatcherRule.testDispatcher) {
+        val viewModel = createViewModel()
+
+        viewModel.saveReading(12.0, utilityId = 1L)
+        advanceUntilIdle()
+
+        assertEquals(SaveOutcome.Saved(), viewModel.saveOutcome.value)
     }
 }
