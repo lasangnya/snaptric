@@ -76,6 +76,7 @@ import com.snaptric.core.designsystem.components.SnaptricBadge
 import com.snaptric.core.domain.insights.MeterRecap
 import com.snaptric.core.domain.insights.formatAmount
 import com.snaptric.core.domain.insights.monthlyUsage
+import com.snaptric.core.domain.insights.startingReading
 import com.snaptric.core.domain.tariff.activeAt
 import com.snaptric.core.domain.tariff.formatMoney
 import com.snaptric.core.domain.tariff.formatRate
@@ -155,6 +156,7 @@ fun UtilityDetailContent(
     var dialog by remember { mutableStateOf<UtilityDialog?>(null) }
     val unit = utility?.unit.orEmpty()
     val gasFactors = currentTariff?.gasFactors ?: GasFactors()
+    val starting = remember(utility, readings) { utility?.let { startingReading(it, readings) } }
 
     Scaffold(
         topBar = {
@@ -235,7 +237,7 @@ fun UtilityDetailContent(
 
                 item {
                     ReadingBarChart(
-                        readings = readings,
+                        readings = readings + listOfNotNull(starting),
                         type = utility?.type,
                         unit = unit,
                         modifier = Modifier
@@ -245,7 +247,7 @@ fun UtilityDetailContent(
                 }
 
                 itemsIndexed(readings, key = { _, it -> it.id }) { index, reading ->
-                    val gap = readings.getOrNull(index + 1)?.let { reading.value - it.value }
+                    val gap = (readings.getOrNull(index + 1) ?: starting)?.let { reading.value - it.value }
                     ReadingHistoryItem(
                         reading = reading,
                         gap = gap,

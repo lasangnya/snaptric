@@ -54,6 +54,26 @@ private const val MILLIS_PER_DAY = 24.0 * 60 * 60 * 1000
 private fun ReadingEntity.localDate(zone: ZoneId): LocalDate =
     Instant.ofEpochMilli(timestamp).atZone(zone).toLocalDate()
 
+/** Source of the reading [startingReading] makes from a meter's initial reading. */
+const val STARTING_READING_SOURCE = "Initial"
+
+/**
+ * The value [utility] was at when it was added, as a reading just before its first saved one, so
+ * usage since then counts. Null when there are no readings yet, when the starting value is zero
+ * (meters added before the app asked for one), or when it's above the first reading (a typo or a
+ * meter that was replaced).
+ */
+fun startingReading(utility: UtilityEntity, readings: List<ReadingEntity>): ReadingEntity? {
+    val first = readings.filter { it.utilityId == utility.id }.minByOrNull { it.timestamp } ?: return null
+    if (utility.initialReading <= 0 || utility.initialReading > first.value) return null
+    return ReadingEntity(
+        utilityId = utility.id,
+        value = utility.initialReading,
+        timestamp = first.timestamp - 1,
+        source = STARTING_READING_SOURCE
+    )
+}
+
 /**
  * Usage per calendar month for one meter's readings. Usage between two consecutive readings is
  * counted in the month of the later reading; drops in value (a reset meter or a typo) are skipped.
@@ -70,6 +90,7 @@ fun monthlyUsage(readings: List<ReadingEntity>, zone: ZoneId = ZoneId.systemDefa
 /**
  * Builds a recap for every meter that has usage this month.
  *
+ * A meter's initial reading counts as the reading before its first one (see [startingReading]).
  * Usage between two consecutive readings is counted in the month of the later reading. Drops in
  * value (a reset meter or a typo) are ignored rather than counted as negative usage. The forecast
  * extends the daily rate over the days left in the month; a finished month has no forecast.
@@ -89,7 +110,8 @@ fun buildMeterRecaps(
     val tariffsByMeter = tariffs.groupBy { it.utilityId }
 
     return utilities.mapNotNull { utility ->
-        val sorted = readingsByMeter[utility.id].orEmpty().sortedBy { it.timestamp }
+        val meterReadings = readingsByMeter[utility.id].orEmpty()
+        val sorted = (meterReadings + listOfNotNull(startingReading(utility, meterReadings))).sortedBy { it.timestamp }
         val usageByMonth = monthlyUsage(sorted, zone)
         // The time span this month's usage covers: from the reading before the first one this month
         // to the latest one. Used to work out a daily rate.
