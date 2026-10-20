@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -252,16 +256,10 @@ fun AddUtilityDialog(
     var name by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(UtilityType.ELECTRICITY) }
     var initialReading by remember { mutableStateOf("") }
+    val initialValue = initialReading.toDoubleOrNull()
 
-    val unitOptions = MeterUnit.optionsFor(selectedType).map { it.symbol }
-    var selectedUnit by remember { mutableStateOf(unitOptions.first()) }
-
-    // Reset unit when type changes
-    val currentUnitOptions = unitOptions
-    val currentFirst = currentUnitOptions.first()
-    if (selectedUnit !in currentUnitOptions) {
-        selectedUnit = currentFirst
-    }
+    val currentUnitOptions = MeterUnit.optionsFor(selectedType).map { it.symbol }
+    var selectedUnit by remember { mutableStateOf(MeterUnit.defaultFor(selectedType).symbol) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -272,7 +270,9 @@ fun AddUtilityDialog(
             )
         },
         text = {
+            // Scrolls so the buttons stay reachable while the keyboard is open.
             Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.md)
             ) {
                 // Type selector
@@ -288,7 +288,11 @@ fun AddUtilityDialog(
                                 index = index,
                                 count = UtilityType.entries.size
                             ),
-                            onClick = { selectedType = type },
+                            onClick = {
+                                // Each type starts on its own most common unit rather than keeping the last one.
+                                if (type != selectedType) selectedUnit = MeterUnit.defaultFor(type).symbol
+                                selectedType = type
+                            },
                             selected = selectedType == type
                         ) {
                             Text(type.label)
@@ -308,9 +312,15 @@ fun AddUtilityDialog(
                 // Reading input
                 OutlinedTextField(
                     value = initialReading,
-                    onValueChange = { initialReading = it },
+                    onValueChange = { input ->
+                        val normalized = input.replace(',', '.')
+                        if (normalized.all { it.isDigit() || it == '.' } && normalized.count { it == '.' } <= 1) {
+                            initialReading = normalized
+                        }
+                    },
                     label = { Text("Initial reading") },
                     suffix = { Text(selectedUnit) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -344,10 +354,9 @@ fun AddUtilityDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val readingValue = initialReading.toDoubleOrNull() ?: 0.0
-                    onConfirm(selectedType, selectedUnit, readingValue, name.ifBlank { null })
+                    initialValue?.let { onConfirm(selectedType, selectedUnit, it, name.ifBlank { null }) }
                 },
-                enabled = initialReading.isNotBlank()
+                enabled = initialValue != null
             ) {
                 Text("Save Meter")
             }
