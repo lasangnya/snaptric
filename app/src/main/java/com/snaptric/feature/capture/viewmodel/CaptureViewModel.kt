@@ -9,6 +9,8 @@ import com.snaptric.core.database.entity.ReadingEntity
 import com.snaptric.core.domain.MeterReadingAnalyzer
 import com.snaptric.core.domain.Reading
 import com.snaptric.core.domain.insights.MeterMatch
+import com.snaptric.core.domain.insights.UsageExplainer
+import com.snaptric.core.domain.insights.compareWithAverage
 import com.snaptric.core.domain.insights.matchMeter
 import com.snaptric.core.domain.insights.sameSerial
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +33,7 @@ import javax.inject.Inject
 class CaptureViewModel @Inject constructor(
     private val meterReadingAnalyzer: MeterReadingAnalyzer,
     private val meterDao: MeterDao,
+    private val usageExplainer: UsageExplainer,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -68,6 +71,10 @@ class CaptureViewModel @Inject constructor(
     // The string result returned from the AI analyzer.
     private val _capturedValue = MutableStateFlow<String?>(null)
     val capturedValue = _capturedValue.asStateFlow()
+
+    // What to show once a reading is saved, including how its usage compares with the meter's average.
+    private val _saveOutcome = MutableStateFlow<SaveOutcome>(SaveOutcome.NotSaved)
+    val saveOutcome = _saveOutcome.asStateFlow()
 
     // Observable list of all properties to allow the user to select the destination for the reading.
     val properties = meterDao.getAllProperties()
@@ -172,25 +179,38 @@ class CaptureViewModel @Inject constructor(
     /**
      * Persists the confirmed reading to the database. If the photo showed a serial number and the
      * meter doesn't have one yet, it's saved on the meter so future scans match automatically.
+     *
+     * Then compares the usage since the meter's previous reading with its recent average, worked
+     * out here from saved readings, and has [usageExplainer] phrase it for [saveOutcome].
      */
     fun saveReading(value : Double, utilityId : Long){
         viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val history = meterDao.getReadingsForUtility(utilityId).first()
+            val meters = meterDao.getAllUtilities().first()
+            val meter = meters.firstOrNull { it.id == utilityId }
             meterDao.insertReading(
                 ReadingEntity(
                     utilityId = utilityId,
                     value = value,
-                    timestamp = System.currentTimeMillis(),
+                    timestamp = timestamp,
                     source = capturedSource
                 )
             )
             capturedSerial?.let { serial ->
-                val meters = meterDao.getAllUtilities().first()
-                val meter = meters.firstOrNull { it.id == utilityId }
                 if (meter != null && meter.serialNumber == null && meters.none { sameSerial(it.serialNumber, serial) }) {
                     meterDao.insertUtility(meter.copy(serialNumber = serial))
                 }
             }
             _capturedValue.value = null // reset to close the dialog
+
+            val comparison = compareWithAverage(value, timestamp, history, meter?.unit.orEmpty())
+            if (comparison == null) {
+                _saveOutcome.value = SaveOutcome.Saved()
+            } else {
+                _saveOutcome.value = SaveOutcome.Explaining
+                _saveOutcome.value = SaveOutcome.Saved(comparison, usageExplainer.explain(comparison))
+            }
         }
     }
 

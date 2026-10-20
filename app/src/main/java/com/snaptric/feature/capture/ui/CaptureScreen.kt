@@ -140,6 +140,15 @@ import com.snaptric.core.designsystem.theme.Charcoal10
 import com.snaptric.core.designsystem.theme.Charcoal20
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.feature.capture.viewmodel.CaptureViewModel
+import com.snaptric.feature.capture.viewmodel.SaveOutcome
+import com.snaptric.core.domain.insights.Insight
+import com.snaptric.core.domain.insights.UsageComparison
+import com.snaptric.core.domain.insights.isUnusual
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingFlat
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 
 /**
  * CaptureScreen provides the camera interface for scanning meter readings.
@@ -178,12 +187,15 @@ fun CaptureScreen(
     val selectedUtilityHistory by viewModel.selectedUtilityHistory.collectAsState()
     val uncertainDigits by viewModel.uncertainDigits.collectAsState()
     val meterMatch by viewModel.meterMatch.collectAsState()
+    val saveOutcome by viewModel.saveOutcome.collectAsState()
 
-    // Set once a reading is saved; shows the success animation, then closes the screen.
+    // Set once a reading is saved; shows the success animation, then closes the screen. When there's
+    // a line comparing usage with the meter's average, it stays up long enough to read, or until tapped.
     var savedReading by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(savedReading) {
-        if (savedReading != null) {
-            delay(700)
+    LaunchedEffect(savedReading, saveOutcome) {
+        val outcome = saveOutcome
+        if (savedReading != null && outcome is SaveOutcome.Saved) {
+            delay(if (outcome.explanation != null) EXPLANATION_DISPLAY_MILLIS else 700)
             onClose()
         }
     }
@@ -430,7 +442,7 @@ fun CaptureScreen(
             )
         }
 
-        savedReading?.let { SaveSuccessOverlay(savedValue = it) }
+        savedReading?.let { SaveSuccessOverlay(savedValue = it, outcome = saveOutcome, onClose = onClose) }
     }
 }
 
@@ -927,16 +939,22 @@ private fun SheetLabel(text: String) {
     )
 }
 
+/** How long the save confirmation stays up when it explains the reading's usage. */
+private const val EXPLANATION_DISPLAY_MILLIS = 6_000L
+
 /**
- * A short celebratory confirmation shown after a reading is saved.
+ * A short celebratory confirmation shown after a reading is saved, with a line on how usage since
+ * the last reading compares with the meter's average when there's enough history. Tapping it
+ * closes the screen once the reading is saved.
  */
 @Composable
-private fun SaveSuccessOverlay(savedValue: String) {
+private fun SaveSuccessOverlay(savedValue: String, outcome: SaveOutcome, onClose: () -> Unit) {
     val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Charcoal10.copy(alpha = 0.6f)),
+            .background(Charcoal10.copy(alpha = 0.6f))
+            .clickable(interactionSource = null, indication = null, enabled = outcome is SaveOutcome.Saved, onClick = onClose),
         contentAlignment = Alignment.Center
     ) {
         AnimatedVisibility(
@@ -951,7 +969,9 @@ private fun SaveSuccessOverlay(savedValue: String) {
                 color = MaterialTheme.colorScheme.surface
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = SnaptricSpacing.xl, vertical = SnaptricSpacing.lg),
+                    modifier = Modifier
+                        .widthIn(max = 320.dp)
+                        .padding(horizontal = SnaptricSpacing.xl, vertical = SnaptricSpacing.lg),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
@@ -975,8 +995,54 @@ private fun SaveSuccessOverlay(savedValue: String) {
                         style = MaterialTheme.typography.bodyLarge.tabularNumbers,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    when (outcome) {
+                        SaveOutcome.Explaining -> {
+                            Spacer(modifier = Modifier.height(SnaptricSpacing.md))
+                            Text(
+                                text = "Comparing with your usual use…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        is SaveOutcome.Saved -> if (outcome.comparison != null && outcome.explanation != null) {
+                            Spacer(modifier = Modifier.height(SnaptricSpacing.md))
+                            UsageExplanation(outcome.comparison, outcome.explanation)
+                        }
+                        SaveOutcome.NotSaved -> Unit
+                    }
                 }
             }
+        }
+    }
+}
+
+/**
+ * One line on how usage since the last reading compares with the meter's average, with an arrow
+ * for the direction. Labelled when an on-device model wrote it, as on Home.
+ */
+@Composable
+private fun UsageExplanation(comparison: UsageComparison, explanation: Insight) {
+    val (icon, tint) = when {
+        !comparison.isUnusual -> Icons.AutoMirrored.Filled.TrendingFlat to MaterialTheme.colorScheme.onSurfaceVariant
+        comparison.changePercent > 0 -> Icons.AutoMirrored.Filled.TrendingUp to MaterialTheme.colorScheme.primary
+        else -> Icons.AutoMirrored.Filled.TrendingDown to EcoGreen
+    }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(SnaptricSpacing.xs)
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        Text(
+            text = explanation.text,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        if (explanation.writtenOnDevice) {
+            Text(
+                text = "Written on your phone by Gemma",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
