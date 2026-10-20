@@ -22,9 +22,12 @@ data class CostEstimate(
     val total: Double get() = usageCost + standingCharge
 }
 
-/** The tariff in force at [timestamp]: the latest one that had started by then. */
+/**
+ * The tariff in force at [timestamp]: the latest one that had started by then. Of tariffs starting
+ * on the same day, the one added last wins, so adding a corrected tariff replaces the earlier one.
+ */
 fun List<TariffEntity>.activeAt(timestamp: Long): TariffEntity? =
-    filter { it.effectiveFrom <= timestamp }.maxByOrNull { it.effectiveFrom }
+    filter { it.effectiveFrom <= timestamp }.maxWithOrNull(compareBy<TariffEntity> { it.effectiveFrom }.thenBy { it.id })
 
 /** The gas factors a tariff carries, with defaults for any that weren't entered. */
 val TariffEntity.gasFactors: GasFactors get() = GasFactors.of(calorificValue, volumeCorrection)

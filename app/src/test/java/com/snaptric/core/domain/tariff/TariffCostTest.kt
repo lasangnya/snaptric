@@ -68,6 +68,14 @@ class TariffCostTest {
     }
 
     @Test
+    fun activeAt_prefersTheTariffAddedLastOnTheSameDay() {
+        val first = tariff(rate = 0.20, from = 100).copy(id = 1)
+        val second = tariff(rate = 0.30, from = 100).copy(id = 2)
+        assertEquals(second, listOf(first, second).activeAt(150))
+        assertEquals(second, listOf(second, first).activeAt(150))
+    }
+
+    @Test
     fun formatting() {
         assertEquals("£1,234.50", formatMoney(1234.5, "GBP"))
         assertEquals("€0.33", formatMoney(0.325, "EUR"))
