@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
@@ -211,9 +213,13 @@ fun UtilityDetailContent(
             }
         } else {
             LazyColumn(
+                // Capped and centred on tablets, so the floating button sits beside the rows instead of over them.
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .wrapContentWidth()
+                    .widthIn(max = 720.dp)
+                    .fillMaxWidth(),
                 contentPadding = PaddingValues(
                     start = SnaptricSpacing.md,
                     end = SnaptricSpacing.md,
