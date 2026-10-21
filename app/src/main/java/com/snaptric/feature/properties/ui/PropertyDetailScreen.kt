@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
@@ -64,6 +65,7 @@ import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.components.SnaptricEmptyState
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
+import com.snaptric.core.domain.tariff.BillTextParser
 import com.snaptric.core.domain.units.MeterUnit
 import com.snaptric.feature.properties.viewmodel.PropertyDetailViewModel
 
@@ -256,13 +258,18 @@ fun AddUtilityDialog(
     var name by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(UtilityType.ELECTRICITY) }
     var initialReading by remember { mutableStateOf("") }
-    val initialValue = initialReading.toDoubleOrNull()
+    // "1,234" and "1.234,5" read as people write them, not as 1.234 or 0.
+    val initialValue = BillTextParser.parseNumber(initialReading)
 
     val currentUnitOptions = MeterUnit.optionsFor(selectedType).map { it.symbol }
     var selectedUnit by remember { mutableStateOf(MeterUnit.defaultFor(selectedType).symbol) }
 
+    // Once something is typed, only Cancel closes the dialog, so Esc or a stray tap outside doesn't lose it.
+    val untouched = name.isEmpty() && initialReading.isEmpty()
+
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(dismissOnBackPress = untouched, dismissOnClickOutside = untouched),
         title = {
             Text(
                 text = "Add New Meter",
@@ -313,10 +320,7 @@ fun AddUtilityDialog(
                 OutlinedTextField(
                     value = initialReading,
                     onValueChange = { input ->
-                        val normalized = input.replace(',', '.')
-                        if (normalized.all { it.isDigit() || it == '.' } && normalized.count { it == '.' } <= 1) {
-                            initialReading = normalized
-                        }
+                        if (input.all { it.isDigit() || it == '.' || it == ',' }) initialReading = input
                     },
                     label = { Text("Initial reading") },
                     suffix = { Text(selectedUnit) },

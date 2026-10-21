@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.test.espresso.Espresso
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
@@ -101,6 +102,28 @@ class PropertyDetailScreenTest {
         composeTestRule.onNodeWithText("Save Meter").performClick()
 
         assertEquals(1234.5, added!!.initialReading, 0.0)
+    }
+
+    @Test
+    fun addMeter_readsAThousandsSeparator() {
+        var added: NewMeter? = null
+        openAddMeterDialog { added = it }
+
+        composeTestRule.onNodeWithText("Initial reading").performTextInput("1,234")
+        composeTestRule.onNodeWithText("Save Meter").performClick()
+
+        assertEquals(1234.0, added!!.initialReading, 0.0)
+    }
+
+    @Test
+    fun addMeter_backKeepsTheDialogOnceSomethingIsTyped() {
+        openAddMeterDialog {}
+
+        composeTestRule.onNodeWithText("Initial reading").performTextInput("1500")
+        Espresso.closeSoftKeyboard()
+        Espresso.pressBackUnconditionally()
+
+        composeTestRule.onNodeWithText("1500").assertIsDisplayed()
     }
 
     @Test
