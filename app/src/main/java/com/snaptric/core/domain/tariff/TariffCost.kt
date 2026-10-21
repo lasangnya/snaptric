@@ -80,6 +80,9 @@ fun formatMoney(amount: Double, currency: String, maxFractionDigits: Int = 0): S
     }
 }
 
+/** A believable unit rate to show as an example: 0.245 for most currencies, 31 for ones without decimals like yen. */
+fun exampleUnitRate(currency: String): Double = if (fractionDigits(currency.uppercase()) == 0) 31.0 else 0.245
+
 /** Decimals the currency is normally shown with: 2 for most, 0 for yen; 2 when it isn't known. */
 private fun fractionDigits(code: String): Int =
     runCatching { Currency.getInstance(code).defaultFractionDigits }.getOrNull()?.takeIf { it >= 0 } ?: 2

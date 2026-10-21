@@ -92,6 +92,7 @@ import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
 import com.snaptric.core.domain.tariff.activeAt
 import com.snaptric.core.domain.tariff.billingUnitsFor
+import com.snaptric.core.domain.tariff.exampleUnitRate
 import com.snaptric.core.domain.tariff.formatRate
 import com.snaptric.core.domain.units.UnitConversions
 import com.snaptric.feature.tariffs.viewmodel.BillScanState
@@ -415,7 +416,9 @@ private fun TariffForm(
             onValueChange = { v -> onChange { it.copy(unitRate = v) } },
             label = "Unit rate ($currency per ${draft.billingUnit})",
             hint = draft.unitRateValue?.let { "= ${formatRate(it, draft.currency, draft.billingUnit)}" }
-                ?: "In $currency, e.g. 0.245 for ${formatRate(0.245, draft.currency, draft.billingUnit)}",
+                ?: exampleUnitRate(draft.currency).let { example ->
+                    "In $currency, e.g. ${example.toBigDecimal().stripTrailingZeros().toPlainString()} for ${formatRate(example, draft.currency, draft.billingUnit)}"
+                },
             field = TariffField.UNIT_RATE,
             draft = draft,
             isError = draft.unitRate.isNotBlank() && draft.unitRateValue == null

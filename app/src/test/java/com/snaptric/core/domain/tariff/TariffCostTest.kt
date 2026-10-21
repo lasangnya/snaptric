@@ -86,6 +86,8 @@ class TariffCostTest {
         assertEquals("¥31/kWh", formatRate(31.0, "JPY", "kWh"))
         assertEquals("¥1,235", formatMoney(1234.5, "JPY"))
         assertEquals("SEK 0.125/kWh", formatRate(0.125, "SEK", "kWh"))
+        assertEquals(31.0, exampleUnitRate("jpy"), 0.0)
+        assertEquals(0.245, exampleUnitRate("GBP"), 0.0)
     }
 
     @Test
