@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,6 +70,7 @@ import com.snaptric.core.designsystem.components.SnaptricEmptyState
 import com.snaptric.core.designsystem.components.UtilityIconBadge
 import com.snaptric.core.designsystem.components.accentColor
 import com.snaptric.core.designsystem.components.formatMeterValue
+import com.snaptric.core.designsystem.components.formatReadingTime
 import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
@@ -76,6 +79,7 @@ import com.snaptric.core.designsystem.components.SnaptricBadge
 import com.snaptric.core.domain.insights.MeterRecap
 import com.snaptric.core.domain.insights.formatAmount
 import com.snaptric.core.domain.insights.monthlyUsage
+import com.snaptric.core.domain.insights.startingReading
 import com.snaptric.core.domain.tariff.activeAt
 import com.snaptric.core.domain.tariff.formatMoney
 import com.snaptric.core.domain.tariff.formatRate
@@ -85,9 +89,7 @@ import com.snaptric.core.domain.units.MeterUnit
 import com.snaptric.core.domain.units.dualUsage
 import com.snaptric.core.domain.units.formatQuantity
 import com.snaptric.feature.properties.viewmodel.UtilityViewModel
-import java.text.SimpleDateFormat
 import java.time.format.TextStyle
-import java.util.Date
 
 /**
  * Entry point for the Utility detail screen.
@@ -155,6 +157,7 @@ fun UtilityDetailContent(
     var dialog by remember { mutableStateOf<UtilityDialog?>(null) }
     val unit = utility?.unit.orEmpty()
     val gasFactors = currentTariff?.gasFactors ?: GasFactors()
+    val starting = remember(utility, readings) { utility?.let { startingReading(it, readings) } }
 
     Scaffold(
         topBar = {
@@ -210,9 +213,13 @@ fun UtilityDetailContent(
             }
         } else {
             LazyColumn(
+                // Capped and centred on tablets, so the floating button sits beside the rows instead of over them.
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .wrapContentWidth()
+                    .widthIn(max = 720.dp)
+                    .fillMaxWidth(),
                 contentPadding = PaddingValues(
                     start = SnaptricSpacing.md,
                     end = SnaptricSpacing.md,
@@ -235,7 +242,7 @@ fun UtilityDetailContent(
 
                 item {
                     ReadingBarChart(
-                        readings = readings,
+                        readings = readings + listOfNotNull(starting),
                         type = utility?.type,
                         unit = unit,
                         modifier = Modifier
@@ -245,7 +252,7 @@ fun UtilityDetailContent(
                 }
 
                 itemsIndexed(readings, key = { _, it -> it.id }) { index, reading ->
-                    val gap = readings.getOrNull(index + 1)?.let { reading.value - it.value }
+                    val gap = (readings.getOrNull(index + 1) ?: starting)?.let { reading.value - it.value }
                     ReadingHistoryItem(
                         reading = reading,
                         gap = gap,
@@ -630,9 +637,7 @@ fun ReadingHistoryItem(
     onClick: (() -> Unit)? = null
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val date = remember(reading.timestamp, locale) {
-        SimpleDateFormat("dd MMM yyyy, HH:mm", locale).format(Date(reading.timestamp))
-    }
+    val date = remember(reading.timestamp, locale) { formatReadingTime(reading.timestamp, locale) }
 
     SnaptricCard(
         modifier = modifier,
@@ -658,9 +663,9 @@ fun ReadingHistoryItem(
                     style = MaterialTheme.typography.headlineSmall.tabularNumbers,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                if (reading.source == "Manual") {
+                if (reading.source.isNotBlank()) {
                     Text(
-                        text = "Typed in",
+                        text = if (reading.source == "Manual") "Typed in" else "Scanned",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -670,7 +675,7 @@ fun ReadingHistoryItem(
                 val energy = type?.let { dualUsage(kotlin.math.abs(gap), unit, it, gasFactors).energyKwh }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap)) +
+                        text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap), grouped = true) +
                             if (unit.isBlank()) "" else " $unit",
                         style = MaterialTheme.typography.labelMedium.tabularNumbers,
                         color = MaterialTheme.colorScheme.primary

@@ -106,7 +106,7 @@ interface MeterDao {
     /**
      * A meter's tariffs, newest first.
      */
-    @Query("SELECT * FROM tariffs WHERE utilityId = :utilityId ORDER BY effectiveFrom DESC")
+    @Query("SELECT * FROM tariffs WHERE utilityId = :utilityId ORDER BY effectiveFrom DESC, id DESC")
     fun getTariffsForUtility(utilityId: Long): Flow<List<TariffEntity>>
 
     /**
