@@ -68,6 +68,7 @@ import com.snaptric.core.designsystem.components.SnaptricEmptyState
 import com.snaptric.core.designsystem.components.UtilityIconBadge
 import com.snaptric.core.designsystem.components.accentColor
 import com.snaptric.core.designsystem.components.formatMeterValue
+import com.snaptric.core.designsystem.components.formatReadingTime
 import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
@@ -86,9 +87,7 @@ import com.snaptric.core.domain.units.MeterUnit
 import com.snaptric.core.domain.units.dualUsage
 import com.snaptric.core.domain.units.formatQuantity
 import com.snaptric.feature.properties.viewmodel.UtilityViewModel
-import java.text.SimpleDateFormat
 import java.time.format.TextStyle
-import java.util.Date
 
 /**
  * Entry point for the Utility detail screen.
@@ -632,9 +631,7 @@ fun ReadingHistoryItem(
     onClick: (() -> Unit)? = null
 ) {
     val locale = LocalConfiguration.current.locales[0]
-    val date = remember(reading.timestamp, locale) {
-        SimpleDateFormat("dd MMM yyyy, HH:mm", locale).format(Date(reading.timestamp))
-    }
+    val date = remember(reading.timestamp, locale) { formatReadingTime(reading.timestamp, locale) }
 
     SnaptricCard(
         modifier = modifier,
@@ -660,9 +657,9 @@ fun ReadingHistoryItem(
                     style = MaterialTheme.typography.headlineSmall.tabularNumbers,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                if (reading.source == "Manual") {
+                if (reading.source.isNotBlank()) {
                     Text(
-                        text = "Typed in",
+                        text = if (reading.source == "Manual") "Typed in" else "Scanned",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -672,7 +669,7 @@ fun ReadingHistoryItem(
                 val energy = type?.let { dualUsage(kotlin.math.abs(gap), unit, it, gasFactors).energyKwh }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap)) +
+                        text = (if (gap >= 0) "+" else "−") + formatMeterValue(kotlin.math.abs(gap), grouped = true) +
                             if (unit.isBlank()) "" else " $unit",
                         style = MaterialTheme.typography.labelMedium.tabularNumbers,
                         color = MaterialTheme.colorScheme.primary

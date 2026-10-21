@@ -21,6 +21,10 @@ import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.designsystem.theme.ElectricityYellow
 import com.snaptric.core.designsystem.theme.GasOrange
 import com.snaptric.core.designsystem.theme.WaterBlue
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 
 /**
@@ -76,8 +80,18 @@ fun UtilityIconBadge(
 
 /**
  * Formats a meter value with at most two decimals and no trailing zeros, e.g. 1250.0 -> "1250".
+ * [grouped] adds thousands separators ("1,250"), for amounts of usage rather than dial values.
  */
-fun formatMeterValue(value: Double): String =
-    String.format(Locale.getDefault(), "%.2f", value)
+fun formatMeterValue(value: Double, grouped: Boolean = false): String =
+    String.format(Locale.getDefault(), if (grouped) "%,.2f" else "%.2f", value)
         .trimEnd('0')
         .trimEnd('.', ',')
+
+/**
+ * When a reading was taken, in the user's locale, e.g. "Oct 21, 2026, 1:13 AM" or
+ * "21 Oct 2026, 01:13". Matches the medium dates used on the tariff screen.
+ */
+fun formatReadingTime(timestamp: Long, locale: Locale = Locale.getDefault(), zone: ZoneId = ZoneId.systemDefault()): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
+        .withLocale(locale)
+        .format(Instant.ofEpochMilli(timestamp).atZone(zone))

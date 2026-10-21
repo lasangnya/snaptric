@@ -58,7 +58,7 @@ import com.snaptric.core.designsystem.components.SnaptricCard
 import com.snaptric.core.designsystem.components.SnaptricSectionHeader
 import com.snaptric.core.designsystem.components.UtilityIconBadge
 import com.snaptric.core.designsystem.components.accentColor
-import com.snaptric.core.designsystem.components.formatMeterValue
+import com.snaptric.core.designsystem.components.formatReadingTime
 import com.snaptric.core.designsystem.components.label
 import com.snaptric.core.designsystem.theme.SnaptricSpacing
 import com.snaptric.core.designsystem.theme.SnaptricTheme
@@ -67,9 +67,7 @@ import com.snaptric.core.domain.insights.Insight
 import com.snaptric.feature.home.viewmodel.HomeReadingItem
 import com.snaptric.feature.home.viewmodel.HomeViewModel
 import com.snaptric.feature.home.viewmodel.buildHomeReadingItems
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
 
 /**
@@ -579,14 +577,11 @@ private fun getGreeting(): String {
     }
 }
 
-private fun formatTimestamp(timestamp: Long): String {
-    val sdf = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
-}
+private fun formatTimestamp(timestamp: Long): String = formatReadingTime(timestamp)
 
 private fun formatDelta(delta: Double, unit: String?): String {
     val sign = if (delta >= 0) "+" else "−"
-    return listOfNotNull(sign + formatMeterValue(kotlin.math.abs(delta)), unit).joinToString(" ")
+    return listOfNotNull(sign + formatMeterValue(kotlin.math.abs(delta), grouped = true), unit).joinToString(" ")
 }
 
 private val previewProperties = listOf(
