@@ -7,6 +7,8 @@ import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.domain.tariff.CostEstimate
 import com.snaptric.core.domain.tariff.activeAt
 import com.snaptric.core.domain.tariff.estimateCost
+import com.snaptric.core.domain.tariff.gasFactors
+import com.snaptric.core.domain.units.GasFactors
 import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
@@ -25,6 +27,7 @@ import kotlin.math.roundToInt
  * @property cost What [usedSoFar] costs, with standing charge up to [lastReadingDate], or null
  *   when the meter has no tariff (or its units don't match the tariff's).
  * @property forecastCost What [forecast] would cost for the whole month, or null.
+ * @property gasFactors Calorific value and correction from the tariff in force, used to show gas in kWh.
  */
 data class MeterRecap(
     val utility: UtilityEntity,
@@ -35,7 +38,8 @@ data class MeterRecap(
     val forecast: Double?,
     val lastMonth: Double?,
     val cost: CostEstimate? = null,
-    val forecastCost: CostEstimate? = null
+    val forecastCost: CostEstimate? = null,
+    val gasFactors: GasFactors = GasFactors()
 ) {
     /** Forecast compared with last month, as a whole percentage (positive means more), or null. */
     val changePercent: Int?
@@ -149,16 +153,17 @@ fun buildMeterRecaps(
             cost = tariff?.let { estimateCost(usedSoFar, utility.unit, utility.type, it, lastDate.dayOfMonth) },
             forecastCost = tariff?.let { t ->
                 forecast?.let { estimateCost(it, utility.unit, utility.type, t, month.lengthOfMonth()) }
-            }
+            },
+            gasFactors = tariff?.gasFactors ?: GasFactors()
         )
     }
 }
 
 /**
- * Rounds a usage amount for display: whole units from 100 up, one decimal below.
+ * Rounds a usage amount for display: whole units with thousands separators from 100 up, one decimal below.
  */
 fun formatAmount(value: Double): String =
-    if (abs(value) >= 100) value.roundToInt().toString()
+    if (abs(value) >= 100) String.format(Locale.US, "%,d", value.roundToInt())
     else String.format(Locale.US, "%.1f", value).removeSuffix(".0")
 
 /** "Electricity at Home", or the meter's own name when it has one. */

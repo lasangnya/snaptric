@@ -110,7 +110,7 @@ class MeterRecapTest {
 
     @Test
     fun `amounts are rounded for display`() {
-        assertEquals("1234", formatAmount(1234.4))
+        assertEquals("1,234", formatAmount(1234.4))
         assertEquals("12.5", formatAmount(12.46))
         assertEquals("12", formatAmount(12.0))
     }

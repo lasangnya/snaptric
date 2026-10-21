@@ -365,11 +365,14 @@ private fun InsightCard(insight: Insight) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Text(
-                text = insight.text,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            // One paragraph per meter, spaced apart so several meters don't run together.
+            insight.text.split("\n").filter { it.isNotBlank() }.forEach { paragraph ->
+                Text(
+                    text = paragraph,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
             if (insight.writtenOnDevice) {
                 Text(
                     text = "Written on your phone by Gemma",
