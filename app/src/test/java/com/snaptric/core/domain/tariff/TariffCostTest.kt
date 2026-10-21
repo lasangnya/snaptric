@@ -82,6 +82,10 @@ class TariffCostTest {
         assertEquals("CHF 3.00", formatMoney(3.0, "chf"))
         assertEquals("24.50p/kWh", formatRate(0.245, "GBP", "kWh"))
         assertEquals("$0.1534/kWh", formatRate(0.1534, "USD", "kWh"))
+        assertEquals("$0.30/day", formatRate(0.30, "USD", "day"))
+        assertEquals("¥31/kWh", formatRate(31.0, "JPY", "kWh"))
+        assertEquals("¥1,235", formatMoney(1234.5, "JPY"))
+        assertEquals("SEK 0.125/kWh", formatRate(0.125, "SEK", "kWh"))
     }
 
     @Test

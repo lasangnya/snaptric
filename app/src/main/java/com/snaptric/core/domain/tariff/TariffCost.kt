@@ -5,6 +5,9 @@ import com.snaptric.core.database.entity.UtilityType
 import com.snaptric.core.domain.units.GasFactors
 import com.snaptric.core.domain.units.MeterUnit
 import com.snaptric.core.domain.units.UnitConversions
+import java.math.RoundingMode
+import java.text.NumberFormat
+import java.util.Currency
 import java.util.Locale
 
 /**
@@ -55,16 +58,31 @@ fun estimateCost(
     )
 }
 
-/** "£48.20", "€12.05", "$7.10", or "CHF 3.00" for currencies without a well-known symbol. */
-fun formatMoney(amount: Double, currency: String): String {
-    val number = String.format(Locale.UK, "%,.2f", amount)
-    return when (currency.uppercase()) {
+/**
+ * "£48.20", "€12.05", "$7.10", "¥310", or "CHF 3.00" for currencies without a well-known symbol.
+ * Uses the currency's usual number of decimals (none for yen), or up to [maxFractionDigits] when
+ * the amount needs more.
+ */
+fun formatMoney(amount: Double, currency: String, maxFractionDigits: Int = 0): String {
+    val code = currency.uppercase()
+    val digits = fractionDigits(code)
+    val number = NumberFormat.getNumberInstance(Locale.UK).apply {
+        minimumFractionDigits = digits
+        maximumFractionDigits = maxOf(digits, maxFractionDigits)
+        roundingMode = RoundingMode.HALF_UP
+    }.format(amount)
+    return when (code) {
         "GBP" -> "£$number"
         "EUR" -> "€$number"
         "USD", "CAD", "AUD", "NZD" -> "$$number"
-        else -> "${currency.uppercase()} $number"
+        "JPY" -> "¥$number"
+        else -> "$code $number"
     }
 }
+
+/** Decimals the currency is normally shown with: 2 for most, 0 for yen; 2 when it isn't known. */
+private fun fractionDigits(code: String): Int =
+    runCatching { Currency.getInstance(code).defaultFractionDigits }.getOrNull()?.takeIf { it >= 0 } ?: 2
 
 /** "24.50p/kWh"-style rate: shown in pence or cents when under one pound or euro. */
 fun formatRate(rate: Double, currency: String, billingUnit: String): String {
@@ -75,8 +93,8 @@ fun formatRate(rate: Double, currency: String, billingUnit: String): String {
     }
     val price = when {
         minor != null && rate < 1 -> String.format(Locale.UK, "%.2f", rate * 100) + minor
-        // Sub-unit rates such as $0.1534 need more than two decimals.
-        rate < 1 -> formatMoney(0.0, currency).replace("0.00", String.format(Locale.UK, "%.4f", rate))
+        // Sub-unit rates such as $0.1534 need more than two decimals; $0.30 doesn't.
+        rate < 1 -> formatMoney(rate, currency, maxFractionDigits = 4)
         else -> formatMoney(rate, currency)
     }
     return "$price/$billingUnit"
