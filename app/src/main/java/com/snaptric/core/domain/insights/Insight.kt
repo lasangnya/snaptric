@@ -1,6 +1,7 @@
 package com.snaptric.core.domain.insights
 
 import com.snaptric.core.domain.tariff.formatMoney
+import com.snaptric.core.domain.units.dualUsage
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.abs
@@ -32,8 +33,13 @@ fun recapFacts(recaps: List<MeterRecap>, locale: Locale = Locale.getDefault()): 
         val unit = recap.utility.unit
         val monthName = recap.month.month.getDisplayName(TextStyle.FULL, locale)
         val previousName = recap.month.minusMonths(1).month.getDisplayName(TextStyle.FULL, locale)
+        // Gas read in volume also gets its energy, as on the meter screen.
+        val usage = dualUsage(recap.usedSoFar, unit, recap.utility.type, recap.gasFactors)
+        val energy = usage.energyKwh?.let { kwh ->
+            " (about ${formatAmount(kwh)} kWh${if (usage.estimated) ", estimated" else ""})"
+        }.orEmpty()
         buildString {
-            append("${recap.meterLabel()}: ${formatAmount(recap.usedSoFar)} $unit used so far in $monthName.")
+            append("${recap.meterLabel()}: ${formatAmount(recap.usedSoFar)} $unit$energy used so far in $monthName.")
             recap.cost?.let { append(" That's about ${formatMoney(it.total, it.currency)} including standing charges.") }
             recap.forecast?.let { forecast ->
                 append(" On track for about ${formatAmount(forecast)} $unit")
@@ -54,11 +60,11 @@ fun recapFacts(recaps: List<MeterRecap>, locale: Locale = Locale.getDefault()): 
     }
 
 /**
- * The always-available writer: joins the fact sentences as they are.
+ * The always-available writer: the fact sentences as they are, one meter per line.
  */
 class TemplateInsightWriter : InsightWriter {
     override suspend fun write(recaps: List<MeterRecap>): Insight =
-        Insight(text = recapFacts(recaps).joinToString(" "), writtenOnDevice = false)
+        Insight(text = recapFacts(recaps).joinToString("\n"), writtenOnDevice = false)
 }
 
 /**

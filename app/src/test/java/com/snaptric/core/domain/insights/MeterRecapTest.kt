@@ -110,7 +110,7 @@ class MeterRecapTest {
 
     @Test
     fun `amounts are rounded for display`() {
-        assertEquals("1234", formatAmount(1234.4))
+        assertEquals("1,234", formatAmount(1234.4))
         assertEquals("12.5", formatAmount(12.46))
         assertEquals("12", formatAmount(12.0))
     }
@@ -159,5 +159,41 @@ class MeterRecapTest {
     fun `no tariff means no cost`() {
         val recap = recaps(listOf(reading("2026-09-30", 1250.0), reading("2026-10-10", 1350.0)), today = "2026-10-12").single()
         assertNull(recap.cost)
+    }
+
+    @Test
+    fun `the initial reading counts as the reading before the first one`() {
+        val gas = UtilityEntity(id = 2, propertyId = 1, type = UtilityType.GAS, unit = "m³", initialReading = 1000.0)
+        val recap = buildMeterRecaps(
+            listOf(reading("2026-10-10", 1150.0, utilityId = 2)), listOf(gas), listOf(home), LocalDate.parse("2026-10-12"), zone
+        ).single()
+
+        assertEquals(150.0, recap.usedSoFar, 0.001)
+    }
+
+    @Test
+    fun `a zero or too high initial reading is ignored`() {
+        val first = reading("2026-10-10", 1150.0)
+        assertNull(startingReading(electricity, listOf(first)))
+        assertNull(startingReading(electricity.copy(initialReading = 2000.0), listOf(first)))
+        assertNull(startingReading(electricity.copy(initialReading = 1000.0), emptyList()))
+        val starting = startingReading(electricity.copy(initialReading = 1000.0), listOf(first))!!
+        assertEquals(1000.0, starting.value, 0.0)
+        assertTrue(starting.timestamp < first.timestamp)
+    }
+
+    @Test
+    fun `facts give gas volume in kWh and say when it's estimated`() {
+        val gas = UtilityEntity(id = 2, propertyId = 1, type = UtilityType.GAS, unit = "m³", initialReading = 0.0, name = "Gas")
+        val recap = buildMeterRecaps(
+            listOf(reading("2026-10-09", 1000.0, utilityId = 2), reading("2026-10-10", 1030.0, utilityId = 2)),
+            listOf(gas), listOf(home), LocalDate.parse("2026-10-12"), zone
+        ).single()
+
+        // 30 m³ × 1.02264 × 39.5 ÷ 3.6 = 337 kWh
+        assertEquals(
+            "Gas at Home: 30 m³ (about 337 kWh, estimated) used so far in October.",
+            recapFacts(listOf(recap), Locale.ENGLISH).single()
+        )
     }
 }

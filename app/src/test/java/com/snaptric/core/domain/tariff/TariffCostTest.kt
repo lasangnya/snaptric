@@ -68,12 +68,26 @@ class TariffCostTest {
     }
 
     @Test
+    fun activeAt_prefersTheTariffAddedLastOnTheSameDay() {
+        val first = tariff(rate = 0.20, from = 100).copy(id = 1)
+        val second = tariff(rate = 0.30, from = 100).copy(id = 2)
+        assertEquals(second, listOf(first, second).activeAt(150))
+        assertEquals(second, listOf(second, first).activeAt(150))
+    }
+
+    @Test
     fun formatting() {
         assertEquals("£1,234.50", formatMoney(1234.5, "GBP"))
         assertEquals("€0.33", formatMoney(0.325, "EUR"))
         assertEquals("CHF 3.00", formatMoney(3.0, "chf"))
         assertEquals("24.50p/kWh", formatRate(0.245, "GBP", "kWh"))
         assertEquals("$0.1534/kWh", formatRate(0.1534, "USD", "kWh"))
+        assertEquals("$0.30/day", formatRate(0.30, "USD", "day"))
+        assertEquals("¥31/kWh", formatRate(31.0, "JPY", "kWh"))
+        assertEquals("¥1,235", formatMoney(1234.5, "JPY"))
+        assertEquals("SEK 0.125/kWh", formatRate(0.125, "SEK", "kWh"))
+        assertEquals(31.0, exampleUnitRate("jpy"), 0.0)
+        assertEquals(0.245, exampleUnitRate("GBP"), 0.0)
     }
 
     @Test

@@ -7,6 +7,7 @@ import app.cash.turbine.test
 import com.snaptric.core.database.SnaptricDatabase
 import com.snaptric.core.database.entity.PropertyEntity
 import com.snaptric.core.database.entity.ReadingEntity
+import com.snaptric.core.database.entity.TariffEntity
 import com.snaptric.core.database.entity.UtilityEntity
 import com.snaptric.core.database.entity.UtilityType
 import kotlinx.coroutines.flow.first
@@ -194,5 +195,20 @@ class MeterDaoTest {
         assertEquals("Main Home", dao.getAllProperties().first().single().name)
         assertEquals("Main Meter", dao.getUtilitiesForProperty(property.id).first().single().name)
         assertEquals(1, dao.getReadingsForUtility(utility.id).first().size)
+    }
+
+    @Test
+    fun getTariffsForUtility_listsTheOneAddedLastFirstOnTheSameDay() = runTest {
+        dao.insertProperty(PropertyEntity(name = "Home", address = null))
+        val propertyId = dao.getAllProperties().first().first().id
+        dao.insertUtility(UtilityEntity(propertyId = propertyId, type = UtilityType.GAS, unit = "m³", initialReading = 0.0))
+        val utilityId = dao.getUtilitiesForProperty(propertyId).first().first().id
+
+        val typed = TariffEntity(utilityId = utilityId, unitRate = 0.06, billingUnit = "kWh", standingChargePerDay = 0.3, currency = "USD", effectiveFrom = 1000L)
+        dao.insertTariff(typed)
+        dao.insertTariff(typed.copy(unitRate = 0.0624, currency = "GBP"))
+
+        val tariffs = dao.getTariffsForUtility(utilityId).first()
+        assertEquals(listOf("GBP", "USD"), tariffs.map { it.currency })
     }
 }
