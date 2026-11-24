@@ -7,6 +7,14 @@ This project is open-source and open to anyone who wants a private, local-first 
 
 ---
 
+## 📱 Screenshots
+
+| Home | Monthly usage | Meters | Property |
+| :---: | :---: | :---: | :---: |
+| <img src="docs/screenshots/home.png" width="200" alt="Home screen with the latest reading and this month's summary"> | <img src="docs/screenshots/monthly-usage.png" width="200" alt="Gas meter with its monthly usage chart and readings"> | <img src="docs/screenshots/meters-and-activity.png" width="200" alt="Your meters and recent activity"> | <img src="docs/screenshots/property.png" width="200" alt="A property with electricity, gas and water meters"> |
+
+---
+
 ## ✨ Features
 
 ### **Current Capabilities**
